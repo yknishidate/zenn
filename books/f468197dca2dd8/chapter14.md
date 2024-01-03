@@ -1,3 +1,6 @@
+---
+title: "同期オブジェクトの作成"
+---
 
 この章はレイトレーシングと直接関係ないので詳しい解説はありません。同期の詳細は[Vulkan Tutorialの同期の項](https://vulkan-tutorial.com/Drawing_a_triangle/Drawing/Rendering_and_presentation)をご覧ください。
 
