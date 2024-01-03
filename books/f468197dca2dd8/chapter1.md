@@ -24,6 +24,7 @@ Vulkan Ray Tracingは、Vulkanに追加された拡張機能群の総称です�
 - Storage imageを削除し、Swapchain imagesに直接描画する形式に変更
 - コードの読みやすさを大幅に改善
 - コード量を大幅に削減（1500行→1100行）
+- カバー画像を更新
 
 ## 記事の特徴
 

@@ -2,98 +2,121 @@
 title: "基本セットアップ"
 ---
 
-この章ではレイトレーシングに関係のない、Vulkanの基本的なセットアップを一気に行います。ほとんどヘルパーに任せしてしまいます。
+この章では、Vulkanの基本的なセットアップを行います。
 
-# 拡張機能を追加
+# 必要なメンバー変数を追加
 
-セットアップを始める前に、まずはレイトレーシングに必要な拡張機能を有効化します。
-`initVulkan()`のなかで拡張機能のリストを作成します。作成したリスト
-は `vkutils::addDeviceExtensions()` でヘルパーに渡しておきます。
+まずは必要なメンバー変数を追加します。
 
 ```cpp
-void initVulkan()
-{
-    std::vector<const char*> deviceExtensions = {
-        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME
+class Application {
+    // ...
+
+private:
+    vk::UniqueInstance instance;
+    vk::UniqueDebugUtilsMessengerEXT debugMessenger;
+    vk::UniqueSurfaceKHR surface;
+
+    vk::PhysicalDevice physicalDevice;
+    vk::UniqueDevice device;
+
+    vk::Queue queue;
+    uint32_t queueFamilyIndex{};
+
+    vk::UniqueCommandPool commandPool;
+    vk::UniqueCommandBuffer commandBuffer;
+};
+```
+
+この記事では、`vk::UniqueHandle<T>`を使ってメンバー変数を保持します。これは、自動的にメモリを解放してくれるハンドルです。`vk::PhysicalDevice`や`vk::Queue`など、一部のオブジェクトは元々解放が不要なので、`vk::UniqueHandle`を使う必要はありません。
+
+# インスタンスを作成
+
+まずはインスタンスを作成します。`initVulkan()`のなかで`vkutils::createInstance()`を呼び出します。この際、後述する検証レイヤーを有効化するために、`VK_LAYER_KHRONOS_validation`を有効化しておきます。また、レイトレーシングを利用するために、`Vulkan 1.2`を指定します。
+
+```diff cpp
+void initVulkan() {
+    std::vector<const char*> layers = {
+        "VK_LAYER_KHRONOS_validation",
     };
-    vkutils::addDeviceExtensions(deviceExtensions);
+
+    instance = vkutils::createInstance(VK_API_VERSION_1_2, layers);
 }
 ```
 
-# 検証レイヤーを有効化する
+# デバッグメッセンジャーを作成
 
-さらに同じ関数内で検証レイヤーを有効化してデバッグメッセージが出るようにします。
+検証レイヤーによるデバッグメッセージを出力するために、デバッグメッセンジャーを作成します。
 
-```cpp
-vkutils::enableDebugMessage();
+```diff cpp
+void initVulkan() {
+    // ...
++   debugMessenger = vkutils::createDebugMessenger(*instance);
+}
 ```
 
-# インスタンス・デバッグメッセンジャー
+# サーフェスを作成
 
-Vulkanのインスタンスとデバッグメッセンジャーをメンバ変数に追加します。
+サーフェスはウィンドウシステムとVulkanを接続するためのものです。この記事ではGLFWを使っているため、GLFWのウィンドウからサーフェスを作成します。
 
-この記事では基本的に`UniqueHandle`としてメンバ変数を保持します。こうすることで明示的なメモリ解放を行わなくて済みます。ただし、オブジェクトによっては正しい順番で解放しないとエラーとなることがあるので注意が必要です。
-
-```cpp
-
-private:
-    ...
-
-    vk::UniqueInstance instance;
-    vk::UniqueDebugUtilsMessengerEXT debugUtilsMessenger;
+```diff cpp
+void initVulkan() {
+    // ...
++   surface = vkutils::createSurface(*instance, window);
+}
 ```
 
-`initVulkan()`でこれらを作成します。
-```cpp
-instance = vkutils::createInstance();
-debugUtilsMessenger = vkutils::createDebugMessenger(instance.get());
+# 物理デバイスを選択
+
+物理デバイスは、VulkanをサポートしているGPUのことです。この記事では、レイトレーシングを利用するために、必要な拡張機能をサポートしているデバイスを選択します。
+
+```diff cpp
+void initVulkan() {
+    // ...
++   std::vector<const char*> deviceExtensions = {
++       // For swapchain
++       VK_KHR_SWAPCHAIN_EXTENSION_NAME,
++       // For ray tracing
++       VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
++       VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
++       VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
++       VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
++       VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
++   };
+
++   physicalDevice = vkutils::pickPhysicalDevice(*instance, 
++                                                *surface, 
++                                                deviceExtensions);
+}
 ```
 
-# サーフェス・デバイス・キュー
+# 論理デバイスを作成
 
-同様にサーフェスとデバイス、キューを追加して作成します。
+論理デバイスは、物理デバイスを抽象化したものです。Vulkanのほとんどのオブジェクトは論理デバイスを介して作成されます。また、GPUにコマンドを送るために必要なキューも論理デバイスから取得します。キューには種類があるのですが、この記事では汎用的なキューを取得しておきます。
 
-```cpp
-vk::UniqueSurfaceKHR surface;
-vk::UniqueDevice device;
-vk::Queue graphicsQueue;
+```diff cpp
+void initVulkan() {
+    // ...
++   queueFamilyIndex = vkutils::findGeneralQueueFamily(physicalDevice, *surface);
++   device = vkutils::createLogicalDevice(physicalDevice,
++                                         queueFamilyIndex,
++                                         deviceExtensions);
++   queue = device->getQueue(queueFamilyIndex, 0);
+}
 ```
 
-```cpp
-surface = vkutils::createSurface(instance.get(), window);
-device = vkutils::createLogicalDevice(instance.get(), surface.get());
-graphicsQueue = vkutils::getGraphicsQueue(device.get());
+# コマンドプールとコマンドバッファを作成
+
+コマンドバッファはGPUに送るコマンドを格納するためのものです。コマンドバッファを作成するためには、コマンドプールも作成する必要があります。
+
+```diff cpp
+void initVulkan() {
+    // ...
++   commandPool = vkutils::createCommandPool(*device, queueFamilyIndex);
++   commandBuffer = vkutils::createCommandBuffer(*device, *commandPool);
+}
 ```
 
-# スワップチェイン・イメージ
-
-こちらも同様に、メンバ変数を追加して作成します。`vk::Image`は`UniqueHandle`にする必要はありません。
-
-```cpp
-vk::UniqueSwapchainKHR swapChain;
-std::vector<vk::Image> swapChainImages;
-```
-
-```cpp
-swapChain = vkutils::createSwapChain(device.get(), surface.get());
-swapChainImages = vkutils::getSwapChainImages(device.get(), swapChain.get());
-```
-
-# コマンドプール・コマンドバッファ
-
-このコマンドバッファは描画時に提出するためのものです。
-
-```cpp
-vk::UniqueCommandPool commandPool;
-std::vector<vk::UniqueCommandBuffer> drawCommandBuffers;
-```
-
-```cpp
-commandPool = vkutils::createCommandPool(device.get());
-drawCommandBuffers = vkutils::createDrawCommandBuffers(device.get(), commandPool.get());
-```
-
-これで基本的なセットアップが完了しました。この章は天下り的になってしまいましたが、次章からいよいよレイトレーシングに関連する作業を行っていきます。
+これで基本的なセットアップが完了しました。
 
 [ここまでのC++コード(01_skip_base_setup.cpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/01_skip_base_setup.cpp)

@@ -29,11 +29,11 @@ title: "プロジェクト設定"
    - (あとでファイルを追加)
 ```
 
-記事で利用するヘルパー [vkutils.hpp](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/vkutils.hpp) はリンクからダウンロードしたものを利用してください。
+記事で利用するヘルパー [vkutils.hpp](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/vkutils.hpp) はこのリンクからダウンロードできます。
 
 ## `vcpkg.json`
 
-vcpkgはC++のパッケージマネージャで、この記事ではGLFWを追加するために利用します。`vcpkg install`コマンドを使うとグローバルにインストールされてしまうため、`vcpkg.json`をプロジェクトに追加し、CMakeを走らせる際にローカルにインストールできるようにします。
+vcpkgはC++のパッケージマネージャで、この記事ではGLFWを追加するために利用します。通常の`vcpkg install xx`コマンドを使うとグローバルにインストールされてしまうため、`vcpkg.json`をプロジェクトに追加し、CMakeを走らせる際にローカルにインストールできるようにします。
 
 ```json:vcpkg.json
 {
