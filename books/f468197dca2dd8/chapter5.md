@@ -8,13 +8,13 @@ title: "スワップチェーンの作成"
 
 スワップチェーンと、その中に含まれるイメージを保持するためのメンバー変数を追加します。
 
-```diff cpp
+```cpp
 private:
     // ...
-+   vk::SurfaceFormatKHR surfaceFormat;
-+   vk::UniqueSwapchainKHR swapchain;
-+   std::vector<vk::Image> swapchainImages;
-+   std::vector<vk::UniqueImageView> swapchainImageViews;
+    vk::SurfaceFormatKHR surfaceFormat;
+    vk::UniqueSwapchainKHR swapchain;
+    std::vector<vk::Image> swapchainImages;
+    std::vector<vk::UniqueImageView> swapchainImageViews;
 ```
 
 # スワップチェーンの作成

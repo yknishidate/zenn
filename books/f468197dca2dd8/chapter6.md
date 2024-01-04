@@ -52,20 +52,20 @@ struct Buffer
 };
 ```
 
-次にメモリを確保します。デバイスアドレスが必要なバッファでは`vk::MemoryAllocateFlagBits::eDeviceAddress`を有効化します。
+次にメモリを確保します。デバイスアドレスが必要なバッファでは`vk::MemoryAllocateFlagBits::eDeviceAddress`を立てます。
 
 ```cpp
 void init(...) {
     // ...
 
     // Allocate memory
-    vk::MemoryRequirements memoryReq =
-        device.getBufferMemoryRequirements(*buffer);
     vk::MemoryAllocateFlagsInfo allocateFlags{};
     if (usage & vk::BufferUsageFlagBits::eShaderDeviceAddress) {
         allocateFlags.flags = vk::MemoryAllocateFlagBits::eDeviceAddress;
     }
 
+    vk::MemoryRequirements memoryReq =
+        device.getBufferMemoryRequirements(*buffer);
     uint32_t memoryType = vkutils::getMemoryType(physicalDevice,  //
                                                  memoryReq, memoryProperty);
     vk::MemoryAllocateInfo allocateInfo{};
@@ -87,7 +87,7 @@ void init(...) {
 }
 ```
 
-次に、格納したいデータのポインタが渡されていれば、バッファにコピーします。
+格納したいデータのポインタが渡されている場合は、メモリにコピーします。
     
 ```cpp
 void init(...) {
@@ -102,7 +102,7 @@ void init(...) {
 }
 ```
 
-最後に、デバイスアドレスを取得しておきます。
+最後に、デバイスアドレスが必要な場合は取得しておきます。
 
 ```cpp
 void init(...) {
