@@ -2,6 +2,25 @@
 title: "BottomLevelASの作成"
 ---
 
+
+# アクセラレーション構造(AS)について
+
+ASの具体的な実装はVulkanの仕様に含まれていませんが、基本的にはBounding Volume Hierarchy(BVH)が使われます。これを用いることで高速な衝突判定が行えるようになります。
+
+ASは以下の2つに分かれています。
+
+- ボトムレベルアクセラレーション構造(BLAS)
+  メッシュごとに頂点とインデックスからなるポリゴン集合を保持する構造
+- トップレベルアクセラレーション構造(TLAS)
+  BLASへの参照と、それに対する変換行列などを保持する構造
+
+![](https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/Images/AccelerationStructure.svg)
+出典:[NVIDIA Vulkan Ray Tracing Tutorial](https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/)
+
+ちなみに、上図のように異なるインスタンスから同じBLASを参照すれば、簡単にインスタンシングを実現できます。
+
+---
+
 前章でバーテックスバッファを作成できたので、ここからボトムレベルアクセラレーション構造を作成していきます。
 
 大まかな流れはこのようになります。
