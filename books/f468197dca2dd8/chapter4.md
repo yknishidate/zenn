@@ -34,7 +34,7 @@ private:
 
 まずはインスタンスを作成します。`initVulkan()`のなかで`vkutils::createInstance()`を呼び出します。この際、後述する検証レイヤーを有効化するために、`VK_LAYER_KHRONOS_validation`を有効化しておきます。また、レイトレーシングを利用するために、`Vulkan 1.2`を指定します。
 
-```diff cpp
+```cpp
 void initVulkan() {
     std::vector<const char*> layers = {
         "VK_LAYER_KHRONOS_validation",
@@ -48,10 +48,10 @@ void initVulkan() {
 
 検証レイヤーによるデバッグメッセージを出力するために、デバッグメッセンジャーを作成します。
 
-```diff cpp
+```cpp
 void initVulkan() {
     // ...
-+   debugMessenger = vkutils::createDebugMessenger(*instance);
+    debugMessenger = vkutils::createDebugMessenger(*instance);
 }
 ```
 
@@ -59,10 +59,10 @@ void initVulkan() {
 
 サーフェスはウィンドウシステムとVulkanを接続するためのものです。この記事ではGLFWを使っているため、GLFWのウィンドウからサーフェスを作成します。
 
-```diff cpp
+```cpp
 void initVulkan() {
     // ...
-+   surface = vkutils::createSurface(*instance, window);
+    surface = vkutils::createSurface(*instance, window);
 }
 ```
 
@@ -70,23 +70,23 @@ void initVulkan() {
 
 物理デバイスは、VulkanをサポートしているGPUのことです。この記事では、レイトレーシングを利用するために、必要な拡張機能をサポートしているデバイスを選択します。
 
-```diff cpp
+```cpp
 void initVulkan() {
     // ...
-+   std::vector<const char*> deviceExtensions = {
-+       // For swapchain
-+       VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-+       // For ray tracing
-+       VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
-+       VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-+       VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-+       VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-+       VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-+   };
+    std::vector<const char*> deviceExtensions = {
+        // For swapchain
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        // For ray tracing
+        VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
+        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+    };
 
-+   physicalDevice = vkutils::pickPhysicalDevice(*instance, 
-+                                                *surface, 
-+                                                deviceExtensions);
+    physicalDevice = vkutils::pickPhysicalDevice(*instance, 
+                                                 *surface, 
+                                                 deviceExtensions);
 }
 ```
 
@@ -94,14 +94,14 @@ void initVulkan() {
 
 論理デバイスは、物理デバイスを抽象化したものです。Vulkanのほとんどのオブジェクトは論理デバイスを介して作成されます。また、GPUにコマンドを送るために必要なキューも論理デバイスから取得します。キューには種類があるのですが、この記事では汎用的なキューを取得しておきます。
 
-```diff cpp
+```cpp
 void initVulkan() {
     // ...
-+   queueFamilyIndex = vkutils::findGeneralQueueFamily(physicalDevice, *surface);
-+   device = vkutils::createLogicalDevice(physicalDevice,
-+                                         queueFamilyIndex,
-+                                         deviceExtensions);
-+   queue = device->getQueue(queueFamilyIndex, 0);
+    queueFamilyIndex = vkutils::findGeneralQueueFamily(physicalDevice, *surface);
+    device = vkutils::createLogicalDevice(physicalDevice,
+                                          queueFamilyIndex,
+                                          deviceExtensions);
+    queue = device->getQueue(queueFamilyIndex, 0);
 }
 ```
 
@@ -109,11 +109,11 @@ void initVulkan() {
 
 コマンドバッファはGPUに送るコマンドを格納するためのものです。コマンドバッファを作成するためには、コマンドプールも作成する必要があります。
 
-```diff cpp
+```cpp
 void initVulkan() {
     // ...
-+   commandPool = vkutils::createCommandPool(*device, queueFamilyIndex);
-+   commandBuffer = vkutils::createCommandBuffer(*device, *commandPool);
+    commandPool = vkutils::createCommandPool(*device, queueFamilyIndex);
+    commandBuffer = vkutils::createCommandBuffer(*device, *commandPool);
 }
 ```
 

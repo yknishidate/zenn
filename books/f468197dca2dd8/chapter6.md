@@ -2,17 +2,17 @@
 title: "バッファの作成"
 ---
 
-GPUでデータを扱うためにはバッファが必要になります。例えば、頂点バッファやインデックスバッファ、アクセラレーション構造のバッファなどです。この章では、これらで利用するバッファを作成していきます。
+GPUでデータを扱うためにはバッファが必要になります。例えば、頂点バッファやインデックスバッファ、アクセラレーション構造のバッファなどです。この章では、これらで利用するバッファ構造体を作成していきます。
 
 # Buffer構造体を作成
 
-Buffer構造体を追加します。パフォーマンスの観点からは推奨されませんが、コードを簡単にするために、メモリはバッファごとに確保することにします。また、レイトレーシングではバッファのアクセスにデバイスアドレスを使うことが多いため、メンバ変数として持たせます。
+Buffer構造体を追加します。パフォーマンスの観点からは推奨されませんが、コードを簡単にするために、メモリはバッファごとに確保することにします。また、バッファのアクセスに利用するデバイスアドレスもメンバ変数として持たせます。
 
 ```cpp
 struct Buffer {
     vk::UniqueBuffer buffer;
-    vk::UniqueDeviceMemory deviceMemory;
-    uint64_t deviceAddress;
+    vk::UniqueDeviceMemory memory;
+    vk::DeviceAddress address{};
 };
 ```
 
@@ -44,11 +44,10 @@ struct Buffer
               vk::MemoryPropertyFlags memoryProperty,
               const void* data = nullptr) {
         // Create buffer
-        vk::BufferCreateInfo bufferCreateInfo{};
-        bufferCreateInfo.setSize(size);
-        bufferCreateInfo.setUsage(usage);
-        bufferCreateInfo.setQueueFamilyIndexCount(0);
-        buffer = device.createBufferUnique(bufferCreateInfo);
+        vk::BufferCreateInfo createInfo{};
+        createInfo.setSize(size);
+        createInfo.setUsage(usage);
+        buffer = device.createBufferUnique(createInfo);
     }
 };
 ```
@@ -60,18 +59,20 @@ void init(...) {
     // ...
 
     // Allocate memory
-    auto memoryRequirements = device.getBufferMemoryRequirements(*buffer);
-    vk::MemoryAllocateFlagsInfo memoryFlagsInfo{};
+    vk::MemoryRequirements memoryReq =
+        device.getBufferMemoryRequirements(*buffer);
+    vk::MemoryAllocateFlagsInfo allocateFlags{};
     if (usage & vk::BufferUsageFlagBits::eShaderDeviceAddress) {
-        memoryFlagsInfo.flags = vk::MemoryAllocateFlagBits::eDeviceAddress;
+        allocateFlags.flags = vk::MemoryAllocateFlagBits::eDeviceAddress;
     }
 
+    uint32_t memoryType = vkutils::getMemoryType(physicalDevice,  //
+                                                 memoryReq, memoryProperty);
     vk::MemoryAllocateInfo allocateInfo{};
-    allocateInfo.setAllocationSize(memoryRequirements.size);
-    allocateInfo.setMemoryTypeIndex(vkutils::getMemoryType(
-        physicalDevice, memoryRequirements, memoryProperty));
-    allocateInfo.setPNext(&memoryFlagsInfo);
-    deviceMemory = device.allocateMemoryUnique(allocateInfo);
+    allocateInfo.setAllocationSize(memoryReq.size);
+    allocateInfo.setMemoryTypeIndex(memoryType);
+    allocateInfo.setPNext(&allocateFlags);
+    memory = device.allocateMemoryUnique(allocateInfo);
 }
 ```
 
@@ -82,7 +83,7 @@ void init(...) {
     // ...
 
     // Bind buffer to memory
-    device.bindBufferMemory(*buffer, *deviceMemory, 0);
+    device.bindBufferMemory(*buffer, *memory, 0);
 }
 ```
 
@@ -94,9 +95,9 @@ void init(...) {
 
     // Copy data
     if (data) {
-        void* dataPtr = device.mapMemory(*deviceMemory, 0, size);
-        memcpy(dataPtr, data, size);
-        device.unmapMemory(*deviceMemory);
+        void* mappedPtr = device.mapMemory(*memory, 0, size);
+        memcpy(mappedPtr, data, size);
+        device.unmapMemory(*memory);
     }
 }
 ```
@@ -109,8 +110,9 @@ void init(...) {
 
     // Get address
     if (usage & vk::BufferUsageFlagBits::eShaderDeviceAddress) {
-        vk::BufferDeviceAddressInfoKHR bufferDeviceAI{*buffer};
-        deviceAddress = device.getBufferAddressKHR(&bufferDeviceAI);
+        vk::BufferDeviceAddressInfoKHR addressInfo{};
+        addressInfo.setBuffer(*buffer);
+        address = device.getBufferAddressKHR(&addressInfo);
     }
 }
 ```

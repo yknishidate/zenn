@@ -16,7 +16,7 @@ title: "プロジェクト設定"
 
 # プロジェクト作成
 
-以下のようにファイルを追加してください。
+以下のようにファイルを追加します。
 
 ```
 /project
@@ -47,6 +47,8 @@ vcpkgはC++のパッケージマネージャで、この記事ではGLFWを追�
 ```
 
 ## `CMakeLists.txt`
+
+C++17を指定し、VulkanのヘッダーとGLFWを追加します。
 
 ```cmake:CMakeLists.txt
 cmake_minimum_required(VERSION 3.19)

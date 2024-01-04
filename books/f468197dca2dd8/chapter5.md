@@ -25,15 +25,15 @@ private:
 
 スワップチェーンを作成したら、その中に含まれるイメージを取得します。
 
-```diff cpp
+```cpp
 void initVulkan() {
     // ...
-+   surfaceFormat = vkutils::chooseSurfaceFormat(physicalDevice, *surface);
-+   swapchain = vkutils::createSwapchain(
-+       physicalDevice, *device, *surface, queueFamilyIndex,
-+       vk::ImageUsageFlagBits::eStorage, surfaceFormat,
-+       WIDTH, HEIGHT);
-+   swapchainImages = device->getSwapchainImagesKHR(*swapchain);
+    surfaceFormat = vkutils::chooseSurfaceFormat(physicalDevice, *surface);
+    swapchain = vkutils::createSwapchain(
+        physicalDevice, *device, *surface, queueFamilyIndex,
+        vk::ImageUsageFlagBits::eStorage, surfaceFormat,
+        WIDTH, HEIGHT);
+    swapchainImages = device->getSwapchainImagesKHR(*swapchain);
 }
 ```
 
@@ -41,53 +41,51 @@ void initVulkan() {
 
 イメージビューは、イメージを読み書きするためのオブジェクトです。イメージビューを作成するために、`createSwapchainImageViews()`という関数を作成します。
 
-```diff cpp
+```cpp
 void initVulkan() {
     // ...
-+   createSwapchainImageViews();
+    createSwapchainImageViews();
 }
 
-+void createSwapchainImageViews() {
-+   // ここにコードを追加
-+}
+void createSwapchainImageViews() {
+    // ここにコードを追加
+}
 ```
 
 まずは、スワップチェーンの画像ごとにイメージビューを作成します。
 
-```diff cpp
+```cpp
 void createSwapchainImageViews() {
-+   for (auto& image : swapchainImages) {
-+       vk::ImageViewCreateInfo imageViewCreateInfo{};
-+       imageViewCreateInfo.setImage(image);
-+       imageViewCreateInfo.setViewType(vk::ImageViewType::e2D);
-+       imageViewCreateInfo.setFormat(surfaceFormat.format);
-+       imageViewCreateInfo.setComponents(
-+           {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG,
-+            vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA});
-+       imageViewCreateInfo.setSubresourceRange(
-+           {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
-+       swapchainImageViews.push_back(
-+           device->createImageViewUnique(imageViewCreateInfo));
-+   }
+    for (auto image : swapchainImages) {
+        vk::ImageViewCreateInfo createInfo{};
+        createInfo.setImage(image);
+        createInfo.setViewType(vk::ImageViewType::e2D);
+        createInfo.setFormat(surfaceFormat.format);
+        createInfo.setComponents(
+            {vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG,
+                vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA});
+        createInfo.setSubresourceRange(
+            {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
+        swapchainImageViews.push_back(
+            device->createImageViewUnique(createInfo));
+    }
 }
 ```
 
 イメージビューはレイアウトという状態を持ち、その状態によってイメージをどのように扱うかが決まります。ここでは表示用としておくため、`vk::ImageLayout::ePresentSrcKHR`に変更します。
 
-```diff cpp
+```cpp
 void createSwapchainImageViews() {
     // ...
 
-+   vkutils::oneTimeSubmit(
-+       *device, *commandPool, queue, [&](vk::CommandBuffer commandBuffer) {
-+           for (auto& image : swapchainImages) {
-+               vkutils::setImageLayout(
-+                   commandBuffer, image,
-+                   vk::ImageLayout::eUndefined,
-+                   vk::ImageLayout::ePresentSrcKHR,
-+                   {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
-+           }
-+       });
+    vkutils::oneTimeSubmit(*device, *commandPool, queue,
+        [&](vk::CommandBuffer commandBuffer) {
+            for (auto image : swapchainImages) {
+                vkutils::setImageLayout(commandBuffer, image,
+                                        vk::ImageLayout::eUndefined,
+                                        vk::ImageLayout::ePresentSrcKHR);
+            }
+        });
 }
 ```
 

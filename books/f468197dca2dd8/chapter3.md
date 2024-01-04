@@ -47,25 +47,25 @@ private:
 `initWindow()`の中でウィンドウを作成しましょう。
 ```cpp
 void initWindow() {
-+   glfwInit();
-+   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-+   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-+   window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+    glfwInit();
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
 }
 ```
 
  `run()` にメインループを追加し、終了したらウィンドウを削除します。
-```diff cpp
+```cpp
 void run() {
     initWindow();
     initVulkan();
 
-+   while (!glfwWindowShouldClose(window)) {
-+       glfwPollEvents();
-+   }
+    while (!glfwWindowShouldClose(window)) {
+        glfwPollEvents();
+    }
 
-+   glfwDestroyWindow(window);
-+   glfwTerminate();
+    glfwDestroyWindow(window);
+    glfwTerminate();
 }
 ```
 
