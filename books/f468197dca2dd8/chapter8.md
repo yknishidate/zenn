@@ -100,11 +100,11 @@ void createTopLevelAS() {
     // Create and build TLAS
     constexpr uint32_t primitiveCount = 1;
     topAccel.init(physicalDevice, *device, *commandPool, queue,
-                    vk::AccelerationStructureTypeKHR::eTopLevel, geometry,
-                    primitiveCount);
+                  vk::AccelerationStructureTypeKHR::eTopLevel,
+                  geometry, primitiveCount);
 }
 ```
 
 以上でBLASとTLASの作成できました。
 
-[ここまでのC++コード(06_create_top_level_as.cpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/06_create_top_level_as.cpp)
+[ここまでのC++コード(06_create_top_level_as.hpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/06_create_top_level_as.hpp)

@@ -1,200 +1,145 @@
 ---
-title: "コマンドバッファの構築"
+title: "ディスクリプタセットの作成"
 ---
 
-この章では描画する際に使用するコマンドバッファを作成していきます。Vulkanではデバイスで実行したいコマンドはコマンドバッファに積み、サブミットすることで実行されます。ここで特徴的なのは、事前にコマンドバッファにコマンドを積んでおけばサブミットするだけで実行することが可能で、さらにそのコマンドバッファは何度でも使いまわすことができるということです。
+この章ではディスクリプタセットを作成します。ディスクリプタ自体はレイトレ特有のものではないのですが、簡単に整理します。
 
-この章では描画する際に必要な一連のコマンドを構築していきます。ここではコマンドを積むだけなので、実際にはなにも実行されないことを覚えておいてください。
+# ディスクリプタについて
+
+ディスクリプタは様々なデータをシェーダから使用できるようにするための概念です。
+
+ディスクリプタという単語はパイプラインの作成時に既に出てきています。詳しく説明しませんでしたが、パイプラインの作成時に出てきた構造体は`DescriptorSetLayout`、`PipelineLayout`など、`Layout`という名前がついていました。`Layout`はその名の通り、データのレイアウトだけを指定するもので、データの中身については参照しないものでした。これだけではデータを使えません。
+
+つまり、シェーダからユニフォーム変数を使うためには
+
+- データ自体
+- データがどのように並んでいるかを示すレイアウト
+
+この2つが必要です。これらは次の図のように対応しています。
+
+![](https://storage.googleapis.com/zenn-user-upload/7vdwkau1dusty7fpwfbw8emxmo53)
+
+図を見れば明らかなように、パイプラインの作成時には右側のレイアウトだけを先に作成したということです。ということで、この章では左側を作成していきます。
 
 大まかな流れはこのようになります。
 
-1. コマンドバッファを開始する
-2. シェーダのアドレス領域を計算する
-3. レイトレーシングパイプラインをバインドする
-4. ディスクリプタセットをバインドする
-5. レイトレーシングを実行する
-6. 出力イメージをスワップチェインのイメージにコピーする
-7. スワップチェインのイメージを表示する
-8. コマンドバッファを終了する
+1. ディスクリプタプールを作成
+2. ディスクリプタセットを確保
+3. トップレベルアクセラレーション構造のディスクリプタを作成
+4. ストレージイメージのディスクリプタを作成
+5. ディスクリプタセットを更新
 
-まずは新しい関数を追加します。
+# ディスクリプタプールを作成
+
+まずはディスクリプタプールとディスクリプタセットをメンバ変数に追加します。
+
+```cpp
+vk::UniqueDescriptorPool descriptorPool;
+vk::UniqueDescriptorSet descriptorSet;
+```
+
+いつものように新しい関数を作成して呼び出します。
 
 ```cpp
 void initVulkan()
 {
     ...
-    buildCommandBuffers();
+
+    createDescriptorSets();
 }
 
-void buildCommandBuffers()
+void createDescriptorSets()
 {
     
 }
 ```
 
-コマンドバッファの操作に入る前に、後で使用するサブリソースレンジという構造体を作成しておきます。
+ディスクリプタプールはディスクリプタセットを割り当てるためのメモリ領域のようなものです。ですので、まずはどの程度の大きさが必要なのかを決める必要があります。
 
 ```cpp
-vk::ImageSubresourceRange subresourceRange{};
-subresourceRange
-    .setAspectMask(vk::ImageAspectFlagBits::eColor)
-    .setBaseMipLevel(0)
-    .setLevelCount(1)
-    .setBaseArrayLayer(0)
-    .setLayerCount(1);
+std::vector<vk::DescriptorPoolSize> poolSizes = {
+    {vk::DescriptorType::eAccelerationStructureKHR, 1},
+    {vk::DescriptorType::eStorageImage, 1}
+};
 ```
 
-# コマンドバッファを開始する
+今回必要なのは1つのトップレベルアクセラレーション構造と1つのストレージイメージです。
 
-ここから、コマンドバッファを構築していきます。コマンドバッファのオブジェクト自体は、既にメンバ変数として用意されているはずです。
-
-```cpp
-std::vector<vk::UniqueCommandBuffer> drawCommandBuffers; // 既にあります
-```
-
-これは最初の方で`initVulkan()`の中でヘルパーを用いて取得してあります。
-
-この全てのコマンドバッファに同じコマンドを積んでいくので、ここからは以下のような`for`の中に書いていきます。
+次に実際にディスクリプタプールを作成します。`FreeDescriptorSet`を指定すると、このプールから作成したディスクリプタセットはプールが破棄される際に自動で解放されるようになります。
 
 ```cpp
-for (int32_t i = 0; i < drawCommandBuffers.size(); ++i) {
-    // ここでコマンドを積む
-}
-```
-
-まず最初はコマンドバッファの記録を開始します。
-
-```cpp
-drawCommandBuffers[i]->begin(
-    vk::CommandBufferBeginInfo{}
+descriptorPool = device->createDescriptorPoolUnique(
+    vk::DescriptorPoolCreateInfo{}
+    .setPoolSizes(poolSizes)
+    .setMaxSets(1)
+    .setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet)
 );
 ```
 
-# シェーダのアドレス領域を計算する
+# ディスクリプタセットを確保
 
-シェーダバインディングテーブルの情報を使って、シェーダがどこにあるのかを指定します。
-
-```cpp
-const uint32_t handleSizeAligned = vkutils::getHandleSizeAligned();
-
-vk::StridedDeviceAddressRegionKHR raygenShaderSbtEntry{};
-raygenShaderSbtEntry
-    .setDeviceAddress(raygenShaderBindingTable.deviceAddress)
-    .setStride(handleSizeAligned)
-    .setSize(handleSizeAligned);
-
-vk::StridedDeviceAddressRegionKHR missShaderSbtEntry{};
-missShaderSbtEntry
-    .setDeviceAddress(missShaderBindingTable.deviceAddress)
-    .setStride(handleSizeAligned)
-    .setSize(handleSizeAligned);
-
-vk::StridedDeviceAddressRegionKHR hitShaderSbtEntry{};
-hitShaderSbtEntry
-    .setDeviceAddress(hitShaderBindingTable.deviceAddress)
-    .setStride(handleSizeAligned)
-    .setSize(handleSizeAligned);
-```
-
-# レイトレーシングパイプラインをバインドする
-
-`bindPipeline()`でレイトレーシングパイプラインを指定します。
+ディスクリプタセットは複数作ることができますが、今回は1つだけでOKです。`allocateDescriptorSetsUnique()`には既に作成したディスクリプタセットレイアウトを渡しています。このレイアウトと同じようにディスクリプタセットを作成してくれます。
 
 ```cpp
-drawCommandBuffers[i]->bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, pipeline.get());
-```
-
-# ディスクリプタセットをバインドする
-
-`bindDescriptorSets()`でディスクリプタセットを指定します。前の章でも触れましたが、このようにコマンドではディスクリプタセットをひとつの単位として操作します。
-
-```cpp
-drawCommandBuffers[i]->bindDescriptorSets(
-    vk::PipelineBindPoint::eRayTracingKHR, // pipelineBindPoint
-    pipelineLayout.get(),                  // layout
-    0,                                     // firstSet
-    descriptorSet.get(),                   // descriptorSets
-    nullptr                                // dynamicOffsets
+auto descriptorSets = device->allocateDescriptorSetsUnique(
+    vk::DescriptorSetAllocateInfo{}
+    .setDescriptorPool(descriptorPool.get())
+    .setSetLayouts(descriptorSetLayout.get())
 );
+descriptorSet = std::move(descriptorSets.front());
 ```
 
-# レイトレーシングを実行する
+この関数は作成するディスクリプタセットが1つだけでも配列の形で結果を返してきます。ですので、配列の先頭要素を`std::move`して取得します。
 
-いよいよレイトレーシングを実行するコマンドです。
+# トップレベルアクセラレーション構造のディスクリプタを作成
+
+ディスクリプタを作成と言っていますが、実際に`vk::Descriptor`などという構造体があるわけではないので注意です。コマンドなどで操作する場合はディスクリプタセットが1つの単位となっています。
+
+ここでは`vk::WriteDescriptorSet`という構造体を使います。
+```cpp
+vk::WriteDescriptorSetAccelerationStructureKHR descriptorAccelerationStructureInfo{};
+descriptorAccelerationStructureInfo
+    .setAccelerationStructures(tlas.handle.get());
+
+vk::WriteDescriptorSet accelerationStructureWrite{};
+accelerationStructureWrite
+    .setDstSet(descriptorSet.get())
+    .setDstBinding(0)
+    .setDescriptorCount(1)
+    .setDescriptorType(vk::DescriptorType::eAccelerationStructureKHR)
+    .setPNext(&descriptorAccelerationStructureInfo);
+```
+
+アクセラレーション構造は拡張機能で提供される構造体なので、特別な`vk::WriteDescriptorSetAccelerationStructureKHR`を先に作成して`setPNext()`で`vk::WriteDescriptorSet`の後ろにくっつけています。
+
+# ストレージイメージのディスクリプタを作成
+
+レイトレーシングの結果を保存するストレージイメージについても`vk::WriteDescriptorSet`を作成します。
 
 ```cpp
-drawCommandBuffers[i]->traceRaysKHR(
-    raygenShaderSbtEntry, // raygenShaderBindingTable
-    missShaderSbtEntry,   // missShaderBindingTable
-    hitShaderSbtEntry,    // hitShaderBindingTable
-    {},                   // callableShaderBindingTable
-    storageImage.width,   // width
-    storageImage.height,  // height
-    1                     // depth
-);
+vk::DescriptorImageInfo imageDescriptor{};
+imageDescriptor
+    .setImageView(storageImage.view.get())
+    .setImageLayout(vk::ImageLayout::eGeneral);
+
+vk::WriteDescriptorSet resultImageWrite{};
+resultImageWrite
+    .setDstSet(descriptorSet.get())
+    .setDescriptorType(vk::DescriptorType::eStorageImage)
+    .setDstBinding(1)
+    .setImageInfo(imageDescriptor);
 ```
 
-# 出力イメージをスワップチェインのイメージにコピーする
+# ディスクリプタセットを更新
 
-レイトレーシングの結果はストレージイメージに保存されています。これを画面に表示するためにスワップチェインイメージにコピーします。
-
-コピーコマンドを積む前に、ストレージイメージとスワップチェインイメージの両方のレイアウトを設定する必要があります。
-
-まず、スワップチェインイメージをコピー先に設定します
-```cpp
-vkutils::setImageLayout(drawCommandBuffers[i].get(), 
-    swapChainImages[i], vk::ImageLayout::eUndefined,
-    vk::ImageLayout::eTransferDstOptimal, subresourceRange);
-```
-
-次にストレージイメージをコピー元に設定します。
-```cpp
-vkutils::setImageLayout(drawCommandBuffers[i].get(), 
-    storageImage.image.get(), vk::ImageLayout::eUndefined, 
-    vk::ImageLayout::eTransferSrcOptimal, subresourceRange);
-```
-
-これで準備完了です。コピーコマンドを積みます。
-```cpp
-vk::ImageCopy copyRegion{};
-copyRegion
-    .setSrcSubresource({ vk::ImageAspectFlagBits::eColor, 0, 0, 1 })
-    .setSrcOffset({ 0, 0, 0 })
-    .setDstSubresource({ vk::ImageAspectFlagBits::eColor, 0, 0, 1 })
-    .setDstOffset({ 0, 0, 0 })
-    .setExtent({ storageImage.width, storageImage.height, 1 });
-drawCommandBuffers[i]->copyImage(
-    storageImage.image.get(),             // srcImage
-    vk::ImageLayout::eTransferSrcOptimal, // srcImageLayout
-    swapChainImages[i],                   // dstImage
-    vk::ImageLayout::eTransferDstOptimal, // dstImageLayout
-    copyRegion                            // regions
-);
-```
-
-コピーが完了したら、またレイアウトを設定しなおす必要があります。
-
-スワップチェインイメージはこれから表示したいので、表示用に設定します。
-```cpp
-vkutils::setImageLayout(drawCommandBuffers[i].get(), 
-    swapChainImages[i], vk::ImageLayout::eTransferDstOptimal, 
-    vk::ImageLayout::ePresentSrcKHR, subresourceRange);
-```
-
-ストレージイメージは元の設定に戻しておきます。
-```cpp
-vkutils::setImageLayout(drawCommandBuffers[i].get(), 
-    storageImage.image.get(), vk::ImageLayout::eTransferSrcOptimal, 
-    vk::ImageLayout::eGeneral, subresourceRange);
-```
-
-これですべてのコマンドを積めました。最後にコマンドバッファの記録を終了します。
+最後に作成した2つの構造体を渡して、ディスクリプタを更新します。
 
 ```cpp
-drawCommandBuffers[i]->end();
+device->updateDescriptorSets({ accelerationStructureWrite, resultImageWrite }, nullptr);
 ```
 
+以上でディスクリプタセットが作成できました。
 
-これでコマンドバッファが完成しました。残るは描画です。次の章では最後の準備として同期用のオブジェクトを作成します。
+この記事もそろそろ終盤です。次の章ではコマンドバッファを構築していきます。
 
-[ここまでのC++コード(10_build_command_buffers.cpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/10_build_command_buffers.cpp)
+[ここまでのC++コード(09_create_descriptor_sets.cpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/09_create_descriptor_sets.cpp)

@@ -3,7 +3,7 @@ title: "ベースコード"
 ---
 
 # ベースコード
-さっそくコードを書いていきます。まずはベースとなるコードを記述します。
+まずはベースとなるApplicationクラスを記述します。
 
 ```cpp
 #include "vkutils.hpp"
@@ -72,7 +72,6 @@ void run() {
 これで実行するとウィンドウが出るようになったはずです。
 ![](https://storage.googleapis.com/zenn-user-upload/jvumbprttxc40c7ysrstf8ejrwi9)
 
-ベースとなるコードができました。次の章では Vulkan のセットアップを行っていきます。
+ベースとなるクラスができました。次の章では Vulkan のセットアップを行っていきます。
 
-[ここまでのC++コード(00_base_code.cpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/00_base_code.cpp)
-
+[ここまでのC++コード(00_base_code.hpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/00_base_code.hpp)

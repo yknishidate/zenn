@@ -119,4 +119,4 @@ void initVulkan() {
 
 これで基本的なセットアップが完了しました。
 
-[ここまでのC++コード(01_skip_base_setup.cpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/01_skip_base_setup.cpp)
+[ここまでのC++コード(01_skip_base_setup.hpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/01_skip_base_setup.hpp)

@@ -91,4 +91,4 @@ void createSwapchainImageViews() {
 
 以上でスワップチェーンの作成が完了しました。
 
-[ここまでのC++コード(02_create_swapchain.cpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/02_create_swapchain.cpp)
+[ここまでのC++コード(02_create_swapchain.hpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/02_create_swapchain.hpp)

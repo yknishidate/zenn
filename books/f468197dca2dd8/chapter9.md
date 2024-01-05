@@ -1,99 +1,8 @@
 ---
-title: "レイトレーシングパイプラインの作成"
+title: "シェーダの作成"
 ---
 
-ラスタライズではグラフィックスパイプラインを作成しますが、レイトレーシングでは全く異なる**レイトレーシングパイプライン**を作成する必要があります。
-
-大まかな流れは以下のようになります。
-
-1. ディスクリプタセットレイアウトを作成
-2. パイプラインレイアウトを作成
-3. シェーダを作成・コンパイル
-4. シェーダ読み込み
-5. シェーダグループの設定
-6. レイトレーシングパイプラインを作成
-
----
-
-まずはパイプライン、パイプラインレイアウト、ディスクリプタレイアウトをメンバ変数を追加します。
-
-```cpp
-vk::UniquePipeline pipeline;
-vk::UniquePipelineLayout pipelineLayout;
-vk::UniqueDescriptorSetLayout descriptorSetLayout;
-```
-
-次に`createRayTracingPipeLine()`を追加して`initVulkan()`で呼び出します。
-
-```cpp
-void initVulkan()
-{
-    ...
-    createRayTracingPipeLine();
-}
-
-void createRayTracingPipeLine()
-{
-    
-}
-```
-
-# ディスクリプタセットレイアウトを作成
-
-ディスクリプタセットを作成するには、その中の`vk::DescriptorSetLayoutBinding`を用意する必要があります。
-
-今回使用するものは次の2つです。
-
-- トップレベルアクセラレーション構造
-- 結果を保存するストレージイメージ
-
-それぞれバインディングを`0`と`1`に設定します。
-
-```cpp
-vk::DescriptorSetLayoutBinding accelerationStructureLayoutBinding{};
-accelerationStructureLayoutBinding
-    .setBinding(0)
-    .setDescriptorType(vk::DescriptorType::eAccelerationStructureKHR)
-    .setDescriptorCount(1)
-    .setStageFlags(vk::ShaderStageFlagBits::eRaygenKHR);
-
-vk::DescriptorSetLayoutBinding resultImageLayoutBinding{};
-resultImageLayoutBinding
-    .setBinding(1)
-    .setDescriptorType(vk::DescriptorType::eStorageImage)
-    .setDescriptorCount(1)
-    .setStageFlags(vk::ShaderStageFlagBits::eRaygenKHR);
-```
-
-こうすることでシェーダからは下のような形でアクセスできるようにします。
-
-```glsl:example.rgen
-layout(binding = 0) uniform accelerationStructureEXT topLevelAS;
-layout(binding = 1) uniform image2D image;
-```
-
-次に2つをまとめてディスクリプタセットレイアウトを作成します。
-
-```cpp
-std::vector<vk::DescriptorSetLayoutBinding> binding{ accelerationStructureLayoutBinding, resultImageLayoutBinding };
-descriptorSetLayout = device->createDescriptorSetLayoutUnique(
-    vk::DescriptorSetLayoutCreateInfo{}
-    .setBindings(binding)
-);
-```
-
-# パイプラインレイアウトを作成
-
-さらにそれを使ってパイプラインレイアウトを作成します。パイプラインレイアウトには複数のディスクリプタセットレイアウトを含むことが出来ますが、ここでは1つだけです。
-
-```cpp
-pipelineLayout = device->createPipelineLayoutUnique(
-    vk::PipelineLayoutCreateInfo{}
-    .setSetLayouts(descriptorSetLayout.get())
-);
-```
-
-# シェーダの作成・コンパイル
+# シェーダの作成
 
 ここで一度メインのプログラムを離れ、シェーダを書いていきます。
 
@@ -106,91 +15,81 @@ pipelineLayout = device->createPipelineLayoutUnique(
 まずはプロジェクトに`shaders`フォルダを作成し、その下にシェーダファイルを置くこととします。
 
 ```
---- project directory/
-    |--- main.cpp
-    |--- vkutils.hpp
-    |--- shaders/
-         |--- raygen.rgen
-	 |--- closesthit.rchit
-	 |--- minn.rmiss
+project/
+ - vcpkg.json
+ - CMakeLists.txt
+ - code/
+   - main.cpp
+   - vkutils.hpp
+ - shaders/
+   - raygen.rgen (new)
+   - closesthit.rchit (new)
+   - miss.rmiss (new)
 ```
-
 
 ## Raygenシェーダ
 
-さっそくシェーダを書いていきます。
+Raygenシェーダはレイトレーシングパイプラインの起点となるシェーダです。レイを飛ばす方向を決め、トレースを開始します。
 
 ```glsl:raygen.rgen
 #version 460
 #extension GL_EXT_ray_tracing : enable
 
-layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
-layout(binding = 1, set = 0, rgba8) uniform image2D image;
+layout(location = 0) rayPayloadEXT vec3 payload;
 
-layout(location = 0) rayPayloadEXT vec3 payLoad;
+layout(binding = 0) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 1, rgba8) uniform image2D image;
 
 void main()
 {
-	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
-	const vec2 inUV = pixelCenter/vec2(gl_LaunchSizeEXT.xy);
-	vec2 d = inUV * 2.0 - 1.0;
+    vec2 uv = (vec2(gl_LaunchIDEXT.xy) + vec2(0.5)) / vec2(gl_LaunchSizeEXT.xy);
+    vec3 origin = vec3(0, 0, 5);
+    vec3 target = vec3(uv * 2.0 - 1.0, 2);
+    vec3 direction = normalize(target - origin);
 
-	vec4 origin = vec4(0, 0, 5, 1);
-	vec4 target = vec4(d.x, d.y, 2, 1) ;
-	vec4 direction = vec4(normalize(target.xyz - origin.xyz), 0) ;
-
-	float tmin = 0.001;
-	float tmax = 10000.0;
-
-    payLoad = vec3(0.0);
+    payload = vec3(0.0);
 
     traceRayEXT(
         topLevelAS,
         gl_RayFlagsOpaqueEXT,
-        0xff, // cullMask
-        0,    // sbtRecordOffset
-        0,    // sbtRecordStride
-        0,    // missIndex
-        origin.xyz,
-        tmin,
-        direction.xyz,
-        tmax,
-        0     // payloadLocation
+        0xff,       // cullMask
+        0, 0, 0,    // sbtRecordOffset, sbtRecordStride, missIndex
+        origin,
+        0.001,      // tMin
+        direction,
+        10000.0,    // tMax
+        0           // payloadLocation
     );
 
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(payLoad, 0.0));
+    imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(payload, 0.0));
 }
 ```
 
-先ほど説明した`binding`でリソースにアクセスしていることが分かります。
-
-`main()`の内容は
-
-- レイを飛ばす方向を決める
-- `traceRayEXT`でレイをトレースする
-- トレースした結果が格納された`payLoad`を`image`に保存する
-
-という流れになっています。
-
+レイトレーシング用のシェーダでは、先頭に`#extension GL_EXT_ray_tracing : enable`という行を追加します。`gl_LaunchIDEXT`という変数を使ってシェーダの起動IDを取得し、レイの原点と方向を計算しています。`traceRayEXT()`関数でレイを飛ばし、`rayPayloadEXT`に指定したペイロード変数で他のシェーダによる結果を受け取ります。今回は単純に色を表す`vec3`を受け取り、`imageStore()`関数で画像に書き込んでいます。
 
 ## Closest Hitシェーダ
+
+Closest Hitシェーダはレイがヒットした点のうち、最も近い点で実行されるシェーダです。今回は三角形内の重心座標を計算して`payload`に保存します。
+
 ```glsl:closesthit.rchit
 #version 460
 #extension GL_EXT_ray_tracing : enable
 
-layout(location = 0) rayPayloadInEXT vec3 payLoad;
+layout(location = 0) rayPayloadInEXT vec3 payload;
 hitAttributeEXT vec3 attribs;
 
 void main()
 {
-  const vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
-  payLoad = barycentricCoords;
+    vec3 baryCoords = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
+    payload = baryCoords;
 }
 ```
 
-`barycentricCoords`というのは日本語では重心座標です。ヒットした三角形内の重心座標を計算して`payLoad`に保存しています。
 
 ## Missシェーダ
+
+Missシェーダはレイがヒットしなかった場合に実行されるシェーダです。今回は背景色を`payload`に保存します。
+
 ```glsl:minn.rmiss
 #version 460
 #extension GL_EXT_ray_tracing : enable
@@ -203,129 +102,116 @@ void main()
 }
 ```
 
-このシェーダは三角形にヒットしなかった場合に実行されるので、この場合は背景色を決めていることになります。
+# シェーダのコンパイル
 
-## コンパイル
+今回は glslangValidator を使ってGLSLをSPIR-V（スピアブイ）形式にコンパイルします。
 
-今回は`glslc.exe`を使って手動でシェーダのコンパイルを行います。
+Windows環境では、`shaders`ディレクトリに以下のようなバッチファイルを作ります。異なるプラットフォームの場合は適宜読み替えて下さい。
 
-Windows環境でVulkan SDKをインストールすると`VULKAN_SDK`という環境変数が追加されているはずなので、`shaders`フォルダから以下のようにコンパイルできます。異なるプラットフォームの場合は適宜読み替えて下さい。
+```sh:compile.bat
+@echo off
+set GLSLANG_VALIDATOR=%VULKAN_SDK%/Bin/glslangValidator.exe
 
-```
-%VULKAN_SDK%/Bin/glslc.exe raygen.rgen -o raygen.rgen.spv --target-env=vulkan1.2
-%VULKAN_SDK%/Bin/glslc.exe closesthit.rchit -o closesthit.rchit.spv --target-env=vulkan1.2
-%VULKAN_SDK%/Bin/glslc.exe miss.rmiss -o miss.rmiss.spv --target-env=vulkan1.2
+for %%s in (raygen.rgen closesthit.rchit miss.rmiss) do (
+    %GLSLANG_VALIDATOR% %%s -V -o %%s.spv --target-env vulkan1.2
+)
 ```
 
 これを実行して3つの`spv`ファイルが作成されていることを確認します。
 
+```sh
+project/
+  - shaders/
+    - raygen.rgen
+    - closesthit.rchit
+    - miss.rmiss
+    - raygen.rgen.spv (new)
+    - closesthit.rchit.spv (new)
+    - miss.rmiss.spv (new)
+```
+
 # シェーダ読み込み
 
-メインプログラムの`createRayTracingPipeLine()`に戻ります。
+ではC++に戻ります。
 
-読み込むシェーダはシェーダモジュールという構造体にラップする必要があります。全てのシェーダを保持するためにシェーダモジュールの配列を作成します。
-
-```cpp
-std::vector<vk::UniqueShaderModule> shaderModules;
-```
-
-さらにそれぞれのモジュールがRaygenなのかMissなのかClosestHitなのか、といった情報を格納するシェーダステージの配列も作成します。配列の中のインデックスを表す変数も置いておきます。
+それぞれのシェーダを読み込んだのち、`vk::ShaderModule`を作成します。シェーダは複数あるので配列にしておきます。パイプラインを作成する際に必要となるその他の情報も配列で用意しておきます。
 
 ```cpp
-std::array<vk::PipelineShaderStageCreateInfo, 3> shaderStages;
-const uint32_t shaderIndexRaygen = 0;
-const uint32_t shaderIndexMiss = 1;
-const uint32_t shaderIndexClosestHit = 2;
-```
-
-さらに次章のシェーダバインディングテーブルを作成する際に必要なシェーダグループの配列も必要です。こちらは関数内の変数ではなく、メンバ変数として追加します。
-
-```cpp
-private:
-    ...
-    
+class Application {
+    // ...
+    std::vector<vk::UniqueShaderModule> shaderModules;
+    std::vector<vk::PipelineShaderStageCreateInfo> shaderStages;
     std::vector<vk::RayTracingShaderGroupCreateInfoKHR> shaderGroups;
+    // ...
+};
 ```
 
-用意ができたのでシェーダを読み込んでいきます。
-
-まずはRaygenシェーダです。
+シェーダを読み込んでいきます。まず、`prepareShaders()`関数を作成し、`initVulkan()`から呼び出します。先ほど追加したメンバ変数をリサイズしておきます。
 
 ```cpp
-shaderModules.push_back(vkutils::createShaderModule(device.get(), "shaders/raygen.rgen.spv"));
-shaderStages[shaderIndexRaygen] =
-    vk::PipelineShaderStageCreateInfo{}
-    .setStage(vk::ShaderStageFlagBits::eRaygenKHR)
-    .setModule(shaderModules.back().get())
-    .setPName("main");
-shaderGroups.push_back(
-    vk::RayTracingShaderGroupCreateInfoKHR{}
-    .setType(vk::RayTracingShaderGroupTypeKHR::eGeneral)
-    .setGeneralShader(shaderIndexRaygen)
-    .setClosestHitShader(VK_SHADER_UNUSED_KHR)
-    .setAnyHitShader(VK_SHADER_UNUSED_KHR)
-    .setIntersectionShader(VK_SHADER_UNUSED_KHR)
-);
-```
+void initVulkan() {
+    // ...
+    prepareShaders();
+}
 
-ファイルのロードとシェーダモジュールの作成はヘルパーに用意されている関数を使います。作成したシェーダモジュールは配列に追加し、`Raygen`シェーダであることを示すシェーダステージも作成して配列内の`shaderIndexRaygen`の場所に入れておきます。
-さらにシェーダグループの配列にも構造体を追加します。こちらはシェーダグループタイプとインデックスを指定します。
-
-同様にMissシェーダとClosestシェーダも読み込みます。
-
-```cpp
-shaderModules.push_back(vkutils::createShaderModule(device.get(), "shaders/miss.rmiss.spv"));
-shaderStages[shaderIndexMiss] =
-    vk::PipelineShaderStageCreateInfo{}
-    .setStage(vk::ShaderStageFlagBits::eMissKHR)
-    .setModule(shaderModules.back().get())
-    .setPName("main");
-shaderGroups.push_back(
-    vk::RayTracingShaderGroupCreateInfoKHR{}
-    .setType(vk::RayTracingShaderGroupTypeKHR::eGeneral)
-    .setGeneralShader(shaderIndexMiss)
-    .setClosestHitShader(VK_SHADER_UNUSED_KHR)
-    .setAnyHitShader(VK_SHADER_UNUSED_KHR)
-    .setIntersectionShader(VK_SHADER_UNUSED_KHR)
-);
-
-shaderModules.push_back(vkutils::createShaderModule(device.get(), "shaders/closesthit.rchit.spv"));
-shaderStages[shaderIndexClosestHit] =
-    vk::PipelineShaderStageCreateInfo{}
-    .setStage(vk::ShaderStageFlagBits::eClosestHitKHR)
-    .setModule(shaderModules.back().get())
-    .setPName("main");
-shaderGroups.push_back(
-    vk::RayTracingShaderGroupCreateInfoKHR{}
-    .setType(vk::RayTracingShaderGroupTypeKHR::eTrianglesHitGroup)
-    .setGeneralShader(VK_SHADER_UNUSED_KHR)
-    .setClosestHitShader(shaderIndexClosestHit)
-    .setAnyHitShader(VK_SHADER_UNUSED_KHR)
-    .setIntersectionShader(VK_SHADER_UNUSED_KHR)
-);
-```
-
-
-これでレイトレーシングパイプライン作成の準備が全て終了しました。最後に`createRayTracingPipelineKHR()`で作成します。
-
-```cpp
-auto result = device->createRayTracingPipelineKHRUnique(nullptr, nullptr,
-    vk::RayTracingPipelineCreateInfoKHR{}
-    .setStages(shaderStages)
-    .setGroups(shaderGroups)
-    .setMaxPipelineRayRecursionDepth(1)
-    .setLayout(pipelineLayout.get())
-);
-if (result.result == vk::Result::eSuccess) {
-    pipeline = std::move(result.value);
-} else {
-    throw std::runtime_error("failed to create ray tracing pipeline.");
+void prepareShaders() {
 }
 ```
 
+3つのシェーダで似たような処理を行うので、ヘルパー関数を作成してまとめておきます。ここではシェーダモジュールを作成したあと、そのシェーダのステージ情報を作成し、シェーダグループにセットします。
 
-以上でこの章は完了です。次の章ではシェーダバインディングテーブルを作成していきます。
+```cpp
+void addShader(uint32_t shaderIndex,
+                uint32_t groupIndex,
+                const std::string& filename,
+                vk::ShaderStageFlagBits stage) {
+    shaderModules[shaderIndex] =
+        vkutils::createShaderModule(*device, SHADER_DIR + filename);
 
-[ここまでのC++コード(07_create_ray_tracing_pipeline.cpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/07_create_ray_tracing_pipeline.cpp)
+    shaderStages[shaderIndex].setStage(stage);
+    shaderStages[shaderIndex].setModule(*shaderModules[shaderIndex]);
+    shaderStages[shaderIndex].setPName("main");
+
+    shaderGroups[groupIndex].setGeneralShader(VK_SHADER_UNUSED_KHR);
+    shaderGroups[groupIndex].setClosestHitShader(VK_SHADER_UNUSED_KHR);
+    shaderGroups[groupIndex].setAnyHitShader(VK_SHADER_UNUSED_KHR);
+    shaderGroups[groupIndex].setIntersectionShader(VK_SHADER_UNUSED_KHR);
+
+    switch (stage) {
+        case vk::ShaderStageFlagBits::eRaygenKHR:
+        case vk::ShaderStageFlagBits::eMissKHR:
+            shaderGroups[groupIndex].setType(
+                vk::RayTracingShaderGroupTypeKHR::eGeneral);
+            shaderGroups[groupIndex].setGeneralShader(shaderIndex);
+            break;
+        case vk::ShaderStageFlagBits::eClosestHitKHR:
+            shaderGroups[groupIndex].setType(
+                vk::RayTracingShaderGroupTypeKHR::eTrianglesHitGroup);
+            shaderGroups[groupIndex].setClosestHitShader(shaderIndex);
+            break;
+        default:
+            break;
+    }
+}
+
+void prepareShaders() {
+    shaderStages.resize(3);
+    shaderModules.resize(3);
+    shaderGroups.resize(3);
+
+    addShader(0, 0, "raygen.rgen.spv",  //
+                vk::ShaderStageFlagBits::eRaygenKHR);
+    addShader(1, 1, "miss.rmiss.spv",  //
+                vk::ShaderStageFlagBits::eMissKHR);
+    addShader(2, 2, "closesthit.rchit.spv",
+                vk::ShaderStageFlagBits::eClosestHitKHR);
+}
+```
+
+シェーダステージとシェーダグループはこの記事では両方とも3つですが、数は異なる場合があるので注意してください。例えば、一つのヒットグループにClosest hitシェーダとAny hitシェーダの2つが含まれることもあります。
+
+以上でこの章は完了です。
+
+[ここまでのC++コード(06_create_shader.hpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/06_create_shader.hpp)
 
 [シェーダファイル](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/tree/master/shaders)

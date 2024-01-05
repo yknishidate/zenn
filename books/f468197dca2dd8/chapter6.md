@@ -119,4 +119,4 @@ void init(...) {
 
 以上でバッファの初期化は完了です。
 
-[ここまでのC++コード(03_create_buffer.cpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/03_create_buffer.cpp)
+[ここまでのC++コード(03_create_buffer.hpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/03_create_buffer.hpp)

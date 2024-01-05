@@ -19,7 +19,7 @@ title: "プロジェクト設定"
 以下のようにファイルを追加します。
 
 ```
-/project
+project/
  - vcpkg.json
  - CMakeLists.txt
  - code/
@@ -83,7 +83,7 @@ endif()
 
 ## CMakeを走らせる
 
-準備ができたらCMakeを走らせます。環境変数に`VCPKG_ROOT`が追加されていることを確認しておいてください。
+準備ができたらCMakeを走らせます。環境変数に`VCPKG_ROOT`が追加されていることを確認しておいてください。vcpkgによってGLFWがインストールされます。
 
 ```sh
 # For windows

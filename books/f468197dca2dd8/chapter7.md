@@ -253,4 +253,4 @@ void init(...) {
 
 以上でBLASの作成が完了しました。次はTLASの作成に移ります。
 
-[ここまでのC++コード(04_create_bottom_level_as.cpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/04_create_bottom_level_as.cpp)
+[ここまでのC++コード(04_create_bottom_level_as.hpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/04_create_bottom_level_as.hpp)

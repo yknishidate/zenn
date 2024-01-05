@@ -4,7 +4,7 @@ title: "はじめに"
 
 # Vulkan Ray Tracingについて
 
-Vulkan Ray Tracingは、クロスベンダーかつクロスプラットフォームにハードウェアレイトレーシングを利用できるAPIです。Vulkanにおいて数個の拡張機能から構成されています。
+Vulkan Ray Tracingは、クロスベンダーかつクロスプラットフォームにハードウェアレイトレーシングを利用できるAPIです。Vulkanにおける数個の拡張機能から構成されています。
 
 2020年11月に[最終仕様](https://www.khronos.org/blog/vulkan-ray-tracing-final-specification-release)がリリースされ、12月には最終仕様に対応したVulkan SDK 1.2.162.0 が公開されました。
 
@@ -23,7 +23,8 @@ Vulkan Ray Tracingは、クロスベンダーかつクロスプラットフォ�
 - CMake + vcpkgによるクロスプラットフォームなプロジェクトに変更
 - Storage imageを削除し、Swapchain imagesに直接描画する形式に変更
 - コードの読みやすさを大幅に改善
-- コード量を大幅に削減（1500行→1100行）
+- コード量を大幅に削減（820行→660行）
+- シェーダコンパイラをglslcからglslangValidatorに変更
 - カバー画像を更新
 
 ## 記事の特徴
