@@ -1,175 +1,331 @@
 ---
-title: "TopLevelASの作成"
+title: "レイトレーシングパイプラインの作成"
 ---
 
-この章ではトップレベルアクセラレーション構造を作成していきます。ボトムレベルの方とほとんど同じ流れです。既にいくつか便利な関数が作成されているので、比較的さくっと作成できるはずです。
+ラスタライズではグラフィックスパイプラインを作成しますが、レイトレーシングでは全く異なる**レイトレーシングパイプライン**を作成する必要があります。
 
-大まかな流れはこのようになります。
+大まかな流れは以下のようになります。
 
-1. インスタンスを作成
-2. インスタンスのバッファを作成
-3. ジオメトリにインスタンスをセット
-4. トップレベルアクセラレーション構造のバッファを作成
-5. トップレベルアクセラレーション構造を作成
-6. スクラッチバッファを作成
-7. トップレベルアクセラレーション構造をビルド
+1. ディスクリプタセットレイアウトを作成
+2. パイプラインレイアウトを作成
+3. シェーダを作成・コンパイル
+4. シェーダ読み込み
+5. シェーダグループの設定
+6. レイトレーシングパイプラインを作成
 
+---
 
-# インスタンスを作成
+まずはパイプライン、パイプラインレイアウト、ディスクリプタレイアウトをメンバ変数を追加します。
 
-まずはメンバ変数にトップレベルアクセラレーション構造を追加します。
 ```cpp
-AccelerationStructure tlas;
+vk::UniquePipeline pipeline;
+vk::UniquePipelineLayout pipelineLayout;
+vk::UniqueDescriptorSetLayout descriptorSetLayout;
 ```
 
-トップレベルアクセラレーション構造を作成する関数も追加し、`initVulkan()`で呼び出します。
+次に`createRayTracingPipeLine()`を追加して`initVulkan()`で呼び出します。
 
 ```cpp
 void initVulkan()
 {
     ...
-    createTopLevelAS();
+    createRayTracingPipeLine();
 }
 
-void createTopLevelAS()
+void createRayTracingPipeLine()
 {
+    
 }
 ```
 
-ここから関数の中身を記述します。
+# ディスクリプタセットレイアウトを作成
 
-まずはトップレベルアクセラレーション構造に格納するインスタンスを作成しましょう。本来は複数のインスタンスを格納できますが、今回は1つだけにします。
+ディスクリプタセットを作成するには、その中の`vk::DescriptorSetLayoutBinding`を用意する必要があります。
 
-インスタンスは主に
+今回使用するものは次の2つです。
 
-- ボトムレベルアクセラレーション構造への参照
-- 変換行列
+- トップレベルアクセラレーション構造
+- 結果を保存するストレージイメージ
 
-を持ちます。
+それぞれバインディングを`0`と`1`に設定します。
 
 ```cpp
-VkTransformMatrixKHR transformMatrix = {
-    1.0f, 0.0f, 0.0f, 0.0f,
-    0.0f, 1.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 1.0f, 0.0f };
-    
-vk::AccelerationStructureInstanceKHR accelerationStructureInstance{};
-accelerationStructureInstance
-    .setTransform(transformMatrix)
-    .setInstanceCustomIndex(0)
-    .setMask(0xFF)
-    .setInstanceShaderBindingTableRecordOffset(0)
-    .setFlags(vk::GeometryInstanceFlagBitsKHR::eTriangleFacingCullDisable)
-    .setAccelerationStructureReference(blas.buffer.deviceAddress);
+vk::DescriptorSetLayoutBinding accelerationStructureLayoutBinding{};
+accelerationStructureLayoutBinding
+    .setBinding(0)
+    .setDescriptorType(vk::DescriptorType::eAccelerationStructureKHR)
+    .setDescriptorCount(1)
+    .setStageFlags(vk::ShaderStageFlagBits::eRaygenKHR);
+
+vk::DescriptorSetLayoutBinding resultImageLayoutBinding{};
+resultImageLayoutBinding
+    .setBinding(1)
+    .setDescriptorType(vk::DescriptorType::eStorageImage)
+    .setDescriptorCount(1)
+    .setStageFlags(vk::ShaderStageFlagBits::eRaygenKHR);
 ```
 
-# インスタンスのバッファを作成
+こうすることでシェーダからは下のような形でアクセスできるようにします。
 
-次にバッファを作成します。このあたりはボトムレベルでいうバーテックスバッファの確保にあたります。
-
-```cpp
-Buffer instancesBuffer = createBuffer(
-    sizeof(vk::AccelerationStructureInstanceKHR),
-    vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR
-    | vk::BufferUsageFlagBits::eShaderDeviceAddress,
-    vk::MemoryPropertyFlagBits::eHostVisible 
-    | vk::MemoryPropertyFlagBits::eHostCoherent,
-    &accelerationStructureInstance);
+```glsl:example.rgen
+layout(binding = 0) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 1) uniform image2D image;
 ```
 
-# ジオメトリにインスタンスをセット
-
-ジオメトリの設定を行います。ちなみにジオメトリという単語は抽象的に使われていて、インスタンス、トライアングル、バウンディングボックスの総称です。
+次に2つをまとめてディスクリプタセットレイアウトを作成します。
 
 ```cpp
-vk::AccelerationStructureGeometryInstancesDataKHR instancesData{};
-instancesData
-    .setArrayOfPointers(false)
-    .setData(instancesBuffer.deviceAddress);
-
-vk::AccelerationStructureGeometryKHR geometry{};
-geometry
-    .setGeometryType(vk::GeometryTypeKHR::eInstances)
-    .setGeometry({ instancesData })
-    .setFlags(vk::GeometryFlagBitsKHR::eOpaque);
-```
-
-# トップレベルアクセラレーション構造のバッファを作成
-
-ビルドに必要なサイズを取得します。`type`が`TopLevel`に変わっています。
-```cpp
-vk::AccelerationStructureBuildGeometryInfoKHR buildGeometryInfo{};
-buildGeometryInfo
-    .setType(vk::AccelerationStructureTypeKHR::eTopLevel)
-    .setFlags(vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace)
-    .setGeometries(geometry);
-
-const uint32_t primitiveCount = 1;
-auto buildSizesInfo = device->getAccelerationStructureBuildSizesKHR(
-    vk::AccelerationStructureBuildTypeKHR::eDevice, buildGeometryInfo, primitiveCount);
-```
-
-アクセラレーション構造を保持するバッファを作成します。既に関数があるので呼び出すだけでOKです。
-```cpp
-tlas.buffer = createAccelerationStructureBuffer(buildSizesInfo);
-```
-
-# トップレベルアクセラレーション構造を作成
-
-トップレベルアクセラレーション構造を作成します。
-```cpp
-tlas.handle = device->createAccelerationStructureKHRUnique(
-    vk::AccelerationStructureCreateInfoKHR{}
-    .setBuffer(tlas.buffer.handle.get())
-    .setSize(buildSizesInfo.accelerationStructureSize)
-    .setType(vk::AccelerationStructureTypeKHR::eTopLevel)
+std::vector<vk::DescriptorSetLayoutBinding> binding{ accelerationStructureLayoutBinding, resultImageLayoutBinding };
+descriptorSetLayout = device->createDescriptorSetLayoutUnique(
+    vk::DescriptorSetLayoutCreateInfo{}
+    .setBindings(binding)
 );
 ```
 
-これで準備完了です。ビルドに入りましょう。
+# パイプラインレイアウトを作成
 
-# スクラッチバッファを作成
-
-前回と同様にスクラッチバッファを用意します。
+さらにそれを使ってパイプラインレイアウトを作成します。パイプラインレイアウトには複数のディスクリプタセットレイアウトを含むことが出来ますが、ここでは1つだけです。
 
 ```cpp
-Buffer scratchBuffer = createScratchBuffer(buildSizesInfo.buildScratchSize);
+pipelineLayout = device->createPipelineLayoutUnique(
+    vk::PipelineLayoutCreateInfo{}
+    .setSetLayouts(descriptorSetLayout.get())
+);
 ```
 
-# トップレベルアクセラレーション構造をビルド
+# シェーダの作成・コンパイル
 
-ビルドに必要な情報を作成します。ボトムレベルをトップレベルに書き換えた程度で、前の章とほぼ同じです。
+ここで一度メインのプログラムを離れ、シェーダを書いていきます。
+
+今回使用するシェーダは3つです。
+
+1. Raygenシェーダ
+2. Closest Hitシェーダ
+3. Missシェーダ
+
+まずはプロジェクトに`shaders`フォルダを作成し、その下にシェーダファイルを置くこととします。
+
+```
+--- project directory/
+    |--- main.cpp
+    |--- vkutils.hpp
+    |--- shaders/
+         |--- raygen.rgen
+	 |--- closesthit.rchit
+	 |--- minn.rmiss
+```
+
+
+## Raygenシェーダ
+
+さっそくシェーダを書いていきます。
+
+```glsl:raygen.rgen
+#version 460
+#extension GL_EXT_ray_tracing : enable
+
+layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 1, set = 0, rgba8) uniform image2D image;
+
+layout(location = 0) rayPayloadEXT vec3 payLoad;
+
+void main()
+{
+	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
+	const vec2 inUV = pixelCenter/vec2(gl_LaunchSizeEXT.xy);
+	vec2 d = inUV * 2.0 - 1.0;
+
+	vec4 origin = vec4(0, 0, 5, 1);
+	vec4 target = vec4(d.x, d.y, 2, 1) ;
+	vec4 direction = vec4(normalize(target.xyz - origin.xyz), 0) ;
+
+	float tmin = 0.001;
+	float tmax = 10000.0;
+
+    payLoad = vec3(0.0);
+
+    traceRayEXT(
+        topLevelAS,
+        gl_RayFlagsOpaqueEXT,
+        0xff, // cullMask
+        0,    // sbtRecordOffset
+        0,    // sbtRecordStride
+        0,    // missIndex
+        origin.xyz,
+        tmin,
+        direction.xyz,
+        tmax,
+        0     // payloadLocation
+    );
+
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(payLoad, 0.0));
+}
+```
+
+先ほど説明した`binding`でリソースにアクセスしていることが分かります。
+
+`main()`の内容は
+
+- レイを飛ばす方向を決める
+- `traceRayEXT`でレイをトレースする
+- トレースした結果が格納された`payLoad`を`image`に保存する
+
+という流れになっています。
+
+
+## Closest Hitシェーダ
+```glsl:closesthit.rchit
+#version 460
+#extension GL_EXT_ray_tracing : enable
+
+layout(location = 0) rayPayloadInEXT vec3 payLoad;
+hitAttributeEXT vec3 attribs;
+
+void main()
+{
+  const vec3 barycentricCoords = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
+  payLoad = barycentricCoords;
+}
+```
+
+`barycentricCoords`というのは日本語では重心座標です。ヒットした三角形内の重心座標を計算して`payLoad`に保存しています。
+
+## Missシェーダ
+```glsl:minn.rmiss
+#version 460
+#extension GL_EXT_ray_tracing : enable
+
+layout(location = 0) rayPayloadInEXT vec3 payLoad;
+
+void main()
+{
+    payLoad = vec3(0.0, 0.5, 0.2);
+}
+```
+
+このシェーダは三角形にヒットしなかった場合に実行されるので、この場合は背景色を決めていることになります。
+
+## コンパイル
+
+今回は`glslc.exe`を使って手動でシェーダのコンパイルを行います。
+
+Windows環境でVulkan SDKをインストールすると`VULKAN_SDK`という環境変数が追加されているはずなので、`shaders`フォルダから以下のようにコンパイルできます。異なるプラットフォームの場合は適宜読み替えて下さい。
+
+```
+%VULKAN_SDK%/Bin/glslc.exe raygen.rgen -o raygen.rgen.spv --target-env=vulkan1.2
+%VULKAN_SDK%/Bin/glslc.exe closesthit.rchit -o closesthit.rchit.spv --target-env=vulkan1.2
+%VULKAN_SDK%/Bin/glslc.exe miss.rmiss -o miss.rmiss.spv --target-env=vulkan1.2
+```
+
+これを実行して3つの`spv`ファイルが作成されていることを確認します。
+
+# シェーダ読み込み
+
+メインプログラムの`createRayTracingPipeLine()`に戻ります。
+
+読み込むシェーダはシェーダモジュールという構造体にラップする必要があります。全てのシェーダを保持するためにシェーダモジュールの配列を作成します。
+
 ```cpp
-vk::AccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{};
-accelerationBuildGeometryInfo
-    .setType(vk::AccelerationStructureTypeKHR::eTopLevel)
-    .setFlags(vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace)
-    .setDstAccelerationStructure(tlas.handle.get())
-    .setGeometries(geometry)
-    .setScratchData(scratchBuffer.deviceAddress);
+std::vector<vk::UniqueShaderModule> shaderModules;
+```
+
+さらにそれぞれのモジュールがRaygenなのかMissなのかClosestHitなのか、といった情報を格納するシェーダステージの配列も作成します。配列の中のインデックスを表す変数も置いておきます。
+
+```cpp
+std::array<vk::PipelineShaderStageCreateInfo, 3> shaderStages;
+const uint32_t shaderIndexRaygen = 0;
+const uint32_t shaderIndexMiss = 1;
+const uint32_t shaderIndexClosestHit = 2;
+```
+
+さらに次章のシェーダバインディングテーブルを作成する際に必要なシェーダグループの配列も必要です。こちらは関数内の変数ではなく、メンバ変数として追加します。
+
+```cpp
+private:
+    ...
     
-vk::AccelerationStructureBuildRangeInfoKHR accelerationStructureBuildRangeInfo{};
-accelerationStructureBuildRangeInfo
-    .setPrimitiveCount(1)
-    .setPrimitiveOffset(0)
-    .setFirstVertex(0)
-    .setTransformOffset(0);
+    std::vector<vk::RayTracingShaderGroupCreateInfoKHR> shaderGroups;
 ```
 
-ビルドコマンドでビルドを実行します。こちらも同様です。
+用意ができたのでシェーダを読み込んでいきます。
+
+まずはRaygenシェーダです。
 
 ```cpp
-auto commandBuffer = vkutils::createCommandBuffer(device.get(), commandPool.get(), true);
-commandBuffer->buildAccelerationStructuresKHR(accelerationBuildGeometryInfo, &accelerationStructureBuildRangeInfo);
-vkutils::submitCommandBuffer(device.get(), commandBuffer.get(), graphicsQueue);
+shaderModules.push_back(vkutils::createShaderModule(device.get(), "shaders/raygen.rgen.spv"));
+shaderStages[shaderIndexRaygen] =
+    vk::PipelineShaderStageCreateInfo{}
+    .setStage(vk::ShaderStageFlagBits::eRaygenKHR)
+    .setModule(shaderModules.back().get())
+    .setPName("main");
+shaderGroups.push_back(
+    vk::RayTracingShaderGroupCreateInfoKHR{}
+    .setType(vk::RayTracingShaderGroupTypeKHR::eGeneral)
+    .setGeneralShader(shaderIndexRaygen)
+    .setClosestHitShader(VK_SHADER_UNUSED_KHR)
+    .setAnyHitShader(VK_SHADER_UNUSED_KHR)
+    .setIntersectionShader(VK_SHADER_UNUSED_KHR)
+);
 ```
 
-最後にアドレスを取得しておきます。
+ファイルのロードとシェーダモジュールの作成はヘルパーに用意されている関数を使います。作成したシェーダモジュールは配列に追加し、`Raygen`シェーダであることを示すシェーダステージも作成して配列内の`shaderIndexRaygen`の場所に入れておきます。
+さらにシェーダグループの配列にも構造体を追加します。こちらはシェーダグループタイプとインデックスを指定します。
+
+同様にMissシェーダとClosestシェーダも読み込みます。
 
 ```cpp
-tlas.buffer.deviceAddress = device->getAccelerationStructureAddressKHR({ tlas.handle.get() });
+shaderModules.push_back(vkutils::createShaderModule(device.get(), "shaders/miss.rmiss.spv"));
+shaderStages[shaderIndexMiss] =
+    vk::PipelineShaderStageCreateInfo{}
+    .setStage(vk::ShaderStageFlagBits::eMissKHR)
+    .setModule(shaderModules.back().get())
+    .setPName("main");
+shaderGroups.push_back(
+    vk::RayTracingShaderGroupCreateInfoKHR{}
+    .setType(vk::RayTracingShaderGroupTypeKHR::eGeneral)
+    .setGeneralShader(shaderIndexMiss)
+    .setClosestHitShader(VK_SHADER_UNUSED_KHR)
+    .setAnyHitShader(VK_SHADER_UNUSED_KHR)
+    .setIntersectionShader(VK_SHADER_UNUSED_KHR)
+);
+
+shaderModules.push_back(vkutils::createShaderModule(device.get(), "shaders/closesthit.rchit.spv"));
+shaderStages[shaderIndexClosestHit] =
+    vk::PipelineShaderStageCreateInfo{}
+    .setStage(vk::ShaderStageFlagBits::eClosestHitKHR)
+    .setModule(shaderModules.back().get())
+    .setPName("main");
+shaderGroups.push_back(
+    vk::RayTracingShaderGroupCreateInfoKHR{}
+    .setType(vk::RayTracingShaderGroupTypeKHR::eTrianglesHitGroup)
+    .setGeneralShader(VK_SHADER_UNUSED_KHR)
+    .setClosestHitShader(shaderIndexClosestHit)
+    .setAnyHitShader(VK_SHADER_UNUSED_KHR)
+    .setIntersectionShader(VK_SHADER_UNUSED_KHR)
+);
 ```
 
-以上でボトムレベルとトップレベルのアクセラレーション構造が作成完了しました。次の章ではレイトレーシングパイプラインを作成していきます。
 
-[ここまでのC++コード(06_create_top_level_as.cpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/06_create_top_level_as.cpp)
+これでレイトレーシングパイプライン作成の準備が全て終了しました。最後に`createRayTracingPipelineKHR()`で作成します。
+
+```cpp
+auto result = device->createRayTracingPipelineKHRUnique(nullptr, nullptr,
+    vk::RayTracingPipelineCreateInfoKHR{}
+    .setStages(shaderStages)
+    .setGroups(shaderGroups)
+    .setMaxPipelineRayRecursionDepth(1)
+    .setLayout(pipelineLayout.get())
+);
+if (result.result == vk::Result::eSuccess) {
+    pipeline = std::move(result.value);
+} else {
+    throw std::runtime_error("failed to create ray tracing pipeline.");
+}
+```
+
+
+以上でこの章は完了です。次の章ではシェーダバインディングテーブルを作成していきます。
+
+[ここまでのC++コード(07_create_ray_tracing_pipeline.cpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/07_create_ray_tracing_pipeline.cpp)
+
+[シェーダファイル](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/tree/master/shaders)

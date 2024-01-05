@@ -1,78 +1,153 @@
 ---
-title: "BottomLevelASのビルド"
+title: "TopLevelASの作成"
 ---
 
-前章でBottomLevelASのビルド準備が終了したので、いよいよ実際にビルドしていきます。
+この章ではトップレベルアクセラレーション構造を作成していきます。ボトムレベルの方とほとんど同じ流れです。既にいくつか便利な関数が作成されているので、比較的さくっと作成できるはずです。
 
 大まかな流れはこのようになります。
 
-1. スクラッチバッファを作成
-2. アクセラレーション構造をビルドする
+1. インスタンスを作成
+2. インスタンスのバッファを作成
+3. ジオメトリにインスタンスをセット
+4. トップレベルアクセラレーション構造のバッファを作成
+5. トップレベルアクセラレーション構造を作成
+6. スクラッチバッファを作成
+7. トップレベルアクセラレーション構造をビルド
+
+
+# インスタンスを作成
+
+まずはメンバ変数にトップレベルアクセラレーション構造を追加します。
+```cpp
+AccelerationStructure tlas;
+```
+
+トップレベルアクセラレーション構造を作成する関数も追加し、`initVulkan()`で呼び出します。
+
+```cpp
+void initVulkan()
+{
+    ...
+    createTopLevelAS();
+}
+
+void createTopLevelAS()
+{
+}
+```
+
+ここから関数の中身を記述します。
+
+まずはトップレベルアクセラレーション構造に格納するインスタンスを作成しましょう。本来は複数のインスタンスを格納できますが、今回は1つだけにします。
+
+インスタンスは主に
+
+- ボトムレベルアクセラレーション構造への参照
+- 変換行列
+
+を持ちます。
+
+```cpp
+VkTransformMatrixKHR transformMatrix = {
+    1.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 1.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 1.0f, 0.0f };
+    
+vk::AccelerationStructureInstanceKHR accelerationStructureInstance{};
+accelerationStructureInstance
+    .setTransform(transformMatrix)
+    .setInstanceCustomIndex(0)
+    .setMask(0xFF)
+    .setInstanceShaderBindingTableRecordOffset(0)
+    .setFlags(vk::GeometryInstanceFlagBitsKHR::eTriangleFacingCullDisable)
+    .setAccelerationStructureReference(blas.buffer.deviceAddress);
+```
+
+# インスタンスのバッファを作成
+
+次にバッファを作成します。このあたりはボトムレベルでいうバーテックスバッファの確保にあたります。
+
+```cpp
+Buffer instancesBuffer = createBuffer(
+    sizeof(vk::AccelerationStructureInstanceKHR),
+    vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR
+    | vk::BufferUsageFlagBits::eShaderDeviceAddress,
+    vk::MemoryPropertyFlagBits::eHostVisible 
+    | vk::MemoryPropertyFlagBits::eHostCoherent,
+    &accelerationStructureInstance);
+```
+
+# ジオメトリにインスタンスをセット
+
+ジオメトリの設定を行います。ちなみにジオメトリという単語は抽象的に使われていて、インスタンス、トライアングル、バウンディングボックスの総称です。
+
+```cpp
+vk::AccelerationStructureGeometryInstancesDataKHR instancesData{};
+instancesData
+    .setArrayOfPointers(false)
+    .setData(instancesBuffer.deviceAddress);
+
+vk::AccelerationStructureGeometryKHR geometry{};
+geometry
+    .setGeometryType(vk::GeometryTypeKHR::eInstances)
+    .setGeometry({ instancesData })
+    .setFlags(vk::GeometryFlagBitsKHR::eOpaque);
+```
+
+# トップレベルアクセラレーション構造のバッファを作成
+
+ビルドに必要なサイズを取得します。`type`が`TopLevel`に変わっています。
+```cpp
+vk::AccelerationStructureBuildGeometryInfoKHR buildGeometryInfo{};
+buildGeometryInfo
+    .setType(vk::AccelerationStructureTypeKHR::eTopLevel)
+    .setFlags(vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace)
+    .setGeometries(geometry);
+
+const uint32_t primitiveCount = 1;
+auto buildSizesInfo = device->getAccelerationStructureBuildSizesKHR(
+    vk::AccelerationStructureBuildTypeKHR::eDevice, buildGeometryInfo, primitiveCount);
+```
+
+アクセラレーション構造を保持するバッファを作成します。既に関数があるので呼び出すだけでOKです。
+```cpp
+tlas.buffer = createAccelerationStructureBuffer(buildSizesInfo);
+```
+
+# トップレベルアクセラレーション構造を作成
+
+トップレベルアクセラレーション構造を作成します。
+```cpp
+tlas.handle = device->createAccelerationStructureKHRUnique(
+    vk::AccelerationStructureCreateInfoKHR{}
+    .setBuffer(tlas.buffer.handle.get())
+    .setSize(buildSizesInfo.accelerationStructureSize)
+    .setType(vk::AccelerationStructureTypeKHR::eTopLevel)
+);
+```
+
+これで準備完了です。ビルドに入りましょう。
 
 # スクラッチバッファを作成
 
-`createBottomLevelAS()`の続きを記述します。ビルドには一時的にバッファが必要となります。このバッファをスクラッチバッファと呼びますが、まずはこれを用意してあげなければいけません。いつものように新しい関数を作ります。
+前回と同様にスクラッチバッファを用意します。
 
 ```cpp
-void createBottomLevelAS()
-{
-    ...
-
-    Buffer scratchBuffer = createScratchBuffer(buildSizesInfo.buildScratchSize);
-}
-
-Buffer createScratchBuffer(vk::DeviceSize size)
-{
-}
+Buffer scratchBuffer = createScratchBuffer(buildSizesInfo.buildScratchSize);
 ```
 
-ここからは`createScratchBuffer()`を埋めていきます。ハンドル作成、メモリ確保、バインドはいつもと同様です。
+# トップレベルアクセラレーション構造をビルド
 
-```cpp
-Buffer scratchBuffer;
-
-scratchBuffer.handle = device->createBufferUnique(
-    vk::BufferCreateInfo{}
-    .setSize(size)
-    .setUsage(vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress)
-);
-
-auto memoryRequirements = device->getBufferMemoryRequirements(scratchBuffer.handle.get());
-vk::MemoryAllocateFlagsInfo memoryAllocateFlagsInfo{ vk::MemoryAllocateFlagBits::eDeviceAddress };
-
-scratchBuffer.deviceMemory = device->allocateMemoryUnique(
-    vk::MemoryAllocateInfo{}
-    .setAllocationSize(memoryRequirements.size)
-    .setMemoryTypeIndex(vkutils::getMemoryType(memoryRequirements, vk::MemoryPropertyFlagBits::eDeviceLocal))
-    .setPNext(&memoryAllocateFlagsInfo)
-);
-device->bindBufferMemory(scratchBuffer.handle.get(), scratchBuffer.deviceMemory.get(), 0);
-```
-
-最後にデバイスアドレスを取得します。
-
-```cpp
-vk::BufferDeviceAddressInfoKHR bufferDeviceAddressInfo{ scratchBuffer.handle.get() };
-scratchBuffer.deviceAddress = getBufferDeviceAddress(scratchBuffer.handle.get());
-
-return scratchBuffer;
-```
-
-# アクセラレーション構造をビルドする
-
-`createScratchBuffer()`が完成したので、再度`createBottomLevelAS()`に戻りましょう。
-
-ビルドに必要な情報を作成します。
+ビルドに必要な情報を作成します。ボトムレベルをトップレベルに書き換えた程度で、前の章とほぼ同じです。
 ```cpp
 vk::AccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{};
 accelerationBuildGeometryInfo
-    .setType(vk::AccelerationStructureTypeKHR::eBottomLevel)
+    .setType(vk::AccelerationStructureTypeKHR::eTopLevel)
     .setFlags(vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace)
-    .setMode(vk::BuildAccelerationStructureModeKHR::eBuild)
-    .setDstAccelerationStructure(blas.handle.get())
+    .setDstAccelerationStructure(tlas.handle.get())
     .setGeometries(geometry)
     .setScratchData(scratchBuffer.deviceAddress);
-
+    
 vk::AccelerationStructureBuildRangeInfoKHR accelerationStructureBuildRangeInfo{};
 accelerationStructureBuildRangeInfo
     .setPrimitiveCount(1)
@@ -81,18 +156,20 @@ accelerationStructureBuildRangeInfo
     .setTransformOffset(0);
 ```
 
-これで実際にデバイス上でビルドすることができます。コマンドバッファを作成してビルドコマンドを積み、サブミットします。
+ビルドコマンドでビルドを実行します。こちらも同様です。
+
 ```cpp
 auto commandBuffer = vkutils::createCommandBuffer(device.get(), commandPool.get(), true);
 commandBuffer->buildAccelerationStructuresKHR(accelerationBuildGeometryInfo, &accelerationStructureBuildRangeInfo);
 vkutils::submitCommandBuffer(device.get(), commandBuffer.get(), graphicsQueue);
 ```
 
-最後にハンドルを取得しておきます。
+最後にアドレスを取得しておきます。
+
 ```cpp
-blas.buffer.deviceAddress = device->getAccelerationStructureAddressKHR({ blas.handle.get() });
+tlas.buffer.deviceAddress = device->getAccelerationStructureAddressKHR({ tlas.handle.get() });
 ```
 
-ようやくボトムレベルアクセラレーション構造がビルドできました。次の章ではトップレベルアクセラレーション構造をビルドします。
+以上でボトムレベルとトップレベルのアクセラレーション構造が作成完了しました。次の章ではレイトレーシングパイプラインを作成していきます。
 
-[ここまでのC++コード(05_build_bottom_level_as.cpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/05_build_bottom_level_as.cpp)
+[ここまでのC++コード(06_create_top_level_as.cpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/06_create_top_level_as.cpp)

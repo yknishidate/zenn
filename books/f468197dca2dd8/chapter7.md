@@ -201,7 +201,7 @@ void init(...) {
 
 # ASのビルド
 
-ASをビルドするためには、スクラッチバッファが必要です。スクラッチバッファはビルドに必要な一時的なメモリであり、必要なサイズは`vk::AccelerationStructureBuildSizesInfoKHR::buildScratchSize`に格納されています。多数のASをビルドする際には、スクラッチバッファを再利用することでパフォーマンスを向上させることができます。
+ASをビルドするためには、スクラッチバッファが必要です。スクラッチバッファはビルドに必要な一時的なメモリであり、必要なサイズは`vk::AccelerationStructureBuildSizesInfoKHR::buildScratchSize`に格納されています。多数のASをビルドする際には、スクラッチバッファは再利用するといいです。
 
 ```cpp
 void init(...) {
