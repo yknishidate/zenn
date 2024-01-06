@@ -31,9 +31,11 @@ project/
 
 記事で利用するヘルパー [vkutils.hpp](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/vkutils.hpp) はこのリンクからダウンロードできます。
 
-## `vcpkg.json`
+## vcpkg と `vcpkg.json`
 
-vcpkgはC++のパッケージマネージャで、この記事ではGLFWを追加するために利用します。通常の`vcpkg install xx`コマンドを使うとグローバルにインストールされてしまうため、`vcpkg.json`をプロジェクトに追加し、CMakeを走らせる際にローカルにインストールできるようにします。
+vcpkgはC++のパッケージマネージャで、この記事ではGLFWを追加するために利用します。多くのVulkanチュートリアルでは、GLFW を公式ページからダウンロードする方法が紹介されていますが、パッケージマネージャを使用すればGUI操作なしで簡単にインストールできます。
+
+vcpkgでは通常の`vcpkg install xx`コマンドを使うとグローバルにインストールされてしまうため、`vcpkg.json`をプロジェクトに追加し、CMakeを走らせる際にローカルにインストールできるようにします。こうすることで、マシン環境を汚さずにライブラリを使用できます。この方式をマニフェストモードと呼びます。
 
 ```json:vcpkg.json
 {
@@ -83,7 +85,7 @@ endif()
 
 ## CMakeを走らせる
 
-準備ができたらCMakeを走らせます。環境変数に`VCPKG_ROOT`が追加されていることを確認しておいてください。vcpkgによってGLFWがインストールされます。
+準備ができたらCMakeを走らせます。環境変数に`VCPKG_ROOT`が追加されていることを確認しておいてください。環境変数の展開はWindows形式で記載しているので適宜読み替えてください。コマンドを実行すると、vcpkgによってGLFWがインストールされ、プロジェクトが作成されます。
 
 ```sh
 # For windows
