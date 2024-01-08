@@ -6,7 +6,7 @@ topics: [vulkan, cpp, githubactions]
 published: true
 ---
 
-CMake presets、vcpkg manifest mode、Vulkan SDKを使ってVulkanプロジェクトをビルドする方法を紹介します。環境はWindowsとします。
+CMake Presets、vcpkg manifest mode、Vulkan SDKを使ってVulkanプロジェクトをビルドする方法を紹介します。環境はWindowsとします。
 
 # CMakeとvcpkgを使ったビルド
 
@@ -49,7 +49,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Configure CMake
       run: |
