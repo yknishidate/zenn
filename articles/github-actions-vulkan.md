@@ -10,7 +10,7 @@ CMake presets、vcpkg manifest mode、Vulkan SDKを使ってVulkanプロジェ�
 
 # CMakeとvcpkgを使ったビルド
 
-まずは、基本的なビルドの流れを書きます。
+`CMakeLists.txt`と`vcpkg.json`がプロジェクトに存在していることを前提として、基本的なビルドの流れを書きます。
 
 `CMakePresets.json`でActions用のプリセットを用意します。ここでは`github`という名前を付けました。vcpkgを使うように設定していますが、GitHub Actionsでは`VCPKG_ROOT`という環境変数はないため、`VCPKG_INSTALLATION_ROOT`という変数を使う必要があります。
 
@@ -110,7 +110,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Export GitHub Actions cache environment variables
       uses: actions/github-script@v6
@@ -134,4 +134,5 @@ jobs:
         cmake --build build/github --config Release -j 8
 ```
 
-以上です。
+ここまでできればテストなども可能そうですね。ウィンドウの扱いは注意が必要そうですが。
+では、この記事は以上です。ありがとうございました。
