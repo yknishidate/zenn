@@ -2,18 +2,43 @@
 title: "シェーダの作成"
 ---
 
+# レイトレーシングパイプラインにおけるシェーダ
+
+レイトレーシングパイプラインでは、通常のグラフィックスパイプラインとは異なるシェーダを使います。
+
+1. Raygenシェーダ：
+   レイトレーシングパイプラインのエントリーポイントとなるシェーダ
+2. Missシェーダ：
+   レイがヒットしなかった場合に実行されるシェーダ
+3. Closest Hitシェーダ：
+   レイがヒットした点のうち、最も近い点で実行されるシェーダ
+4. Any Hitシェーダ：
+   レイがヒットした全ての点で実行されるシェーダ
+5. Intersectionシェーダ：
+   三角ポリゴン以外のアプリケーションで定義された自由な形状との交差判定を行うシェーダ
+6. Callableシェーダ：
+   その他のシェーダから呼び出されるシェーダ
+
+フローとしては以下のようになります。ごちゃごちゃするので書いていませんが、MissやHit系シェーダの後はRaygenシェーダに戻ります。
+
+```mermaid
+graph TD
+    A[Raygen Shader] --> C{Hit?}
+    C -->|Yes| D{Closest?}
+    C -->|Yes| G[Any Hit]
+    C -->|No| E[Miss]
+    D -->|Yes| F[Closest Hit]
+```
+
 # シェーダの作成
 
 ここで一度メインのプログラムを離れ、シェーダを書いていきます。
 
-今回使用するシェーダは3つです。
+今回使用するシェーダは基本となる以下の3つです。
 
 1. Raygenシェーダ：
-   レイトレーシングパイプラインのエントリーポイントとなるシェーダ
 2. Closest Hitシェーダ：
-   レイがヒットした点のうち、最も近い点で実行されるシェーダ
 3. Missシェーダ：
-   レイがヒットしなかった場合に実行されるシェーダ
 
 まずはプロジェクトに`shaders`フォルダを作成し、その下にシェーダファイルを置くこととします。
 
@@ -70,7 +95,7 @@ void main()
 
 レイトレーシング用のシェーダでは、先頭で `GL_EXT_ray_tracing` という拡張機能を有効化します。`gl_LaunchIDEXT` と `gl_LaunchSizeEXT` という変数を使って、シェーダの起動IDとサイズを取得し、レイの原点と方向を計算しています。
 
-`traceRayEXT()` 関数で、バインドした `accelerationStructureEXT` に対してレイを飛ばし、`rayPayloadEXT` に指定したペイロード変数で他のシェーダによる結果を受け取ります。今回は単純に色を表す `vec3` を受け取りますが、ペイロードの型はユーザ定義の構造体でも構いません。
+`traceRayEXT()` 関数で、バインドした `accelerationStructureEXT` に対してレイを飛ばし、`rayPayloadEXT` に指定したペイロード変数で他のシェーダによる結果を受け取ります。今回は単純に色を表す `vec3` を受け取りますが、ペイロードの型はユーザ定義の構造体でも構いません。データの典型例としては、放射輝度、ヒットした点の位置、法線、そこまでにレイが進んだ距離などが挙げられるでしょうか。
 
 最後に、`imageStore()` 関数で色を書き込みます。通常のグラフィックスパイプラインにおけるフラグメントシェーダは、シェーダの出力変数に色を入れていましたが、レイトレーシングでは画像に直接書き込みます。そのため、画像をStorage imageとしてバインドする必要があります。
 
@@ -112,7 +137,7 @@ void main()
 
 # シェーダのコンパイル
 
-今回は glslangValidator を使ってGLSLをSPIR-V（スピアブイ）形式にコンパイルします。
+今回は glslangValidator を使ってGLSLをSPIR-V（読み方：スピアブイ）形式にコンパイルします。
 
 Windows環境では、`shaders`ディレクトリに以下のようなバッチファイルを作ります。異なるプラットフォームの場合は適宜読み替えて下さい。
 
@@ -138,7 +163,7 @@ project/
     - miss.rmiss.spv (new)
 ```
 
-# シェーダ読み込み
+# シェーダモジュールとシェーダステージ
 
 ではC++に戻ります。
 
@@ -166,57 +191,120 @@ void prepareShaders() {
 }
 ```
 
-3つのシェーダで似たような処理を行うので、ヘルパー関数を作成してまとめておきます。ここではシェーダモジュールを作成したあと、そのシェーダのステージ情報を作成し、シェーダグループにセットします。
+3つのシェーダで似たような処理を行うので、ヘルパー関数を作成してまとめておきます。シェーダモジュールとシェーダステージは通常のグラフィックスパイプラインと同様です。
 
 ```cpp
 void addShader(uint32_t shaderIndex,
-                uint32_t groupIndex,
                 const std::string& filename,
                 vk::ShaderStageFlagBits stage) {
     shaderModules[shaderIndex] =
         vkutils::createShaderModule(*device, SHADER_DIR + filename);
-
     shaderStages[shaderIndex].setStage(stage);
     shaderStages[shaderIndex].setModule(*shaderModules[shaderIndex]);
     shaderStages[shaderIndex].setPName("main");
-
-    shaderGroups[groupIndex].setGeneralShader(VK_SHADER_UNUSED_KHR);
-    shaderGroups[groupIndex].setClosestHitShader(VK_SHADER_UNUSED_KHR);
-    shaderGroups[groupIndex].setAnyHitShader(VK_SHADER_UNUSED_KHR);
-    shaderGroups[groupIndex].setIntersectionShader(VK_SHADER_UNUSED_KHR);
-
-    switch (stage) {
-        case vk::ShaderStageFlagBits::eRaygenKHR:
-        case vk::ShaderStageFlagBits::eMissKHR:
-            shaderGroups[groupIndex].setType(
-                vk::RayTracingShaderGroupTypeKHR::eGeneral);
-            shaderGroups[groupIndex].setGeneralShader(shaderIndex);
-            break;
-        case vk::ShaderStageFlagBits::eClosestHitKHR:
-            shaderGroups[groupIndex].setType(
-                vk::RayTracingShaderGroupTypeKHR::eTrianglesHitGroup);
-            shaderGroups[groupIndex].setClosestHitShader(shaderIndex);
-            break;
-        default:
-            break;
-    }
 }
 
 void prepareShaders() {
+    std::cout << "Prepare shaders\n";
+
+    // Create shader modules and shader stages
+    uint32_t raygenShader = 0;
+    uint32_t missShader = 1;
+    uint32_t chitShader = 2;
     shaderStages.resize(3);
     shaderModules.resize(3);
-    shaderGroups.resize(3);
 
-    addShader(0, 0, "raygen.rgen.spv",  //
-                vk::ShaderStageFlagBits::eRaygenKHR);
-    addShader(1, 1, "miss.rmiss.spv",  //
-                vk::ShaderStageFlagBits::eMissKHR);
-    addShader(2, 2, "closesthit.rchit.spv",
-                vk::ShaderStageFlagBits::eClosestHitKHR);
+    addShader(raygenShader, "raygen.rgen.spv",
+              vk::ShaderStageFlagBits::eRaygenKHR);
+    addShader(missShader, "miss.rmiss.spv",
+              vk::ShaderStageFlagBits::eMissKHR);
+    addShader(chitShader, "closesthit.rchit.spv",
+              vk::ShaderStageFlagBits::eClosestHitKHR);
 }
 ```
 
-シェーダステージとシェーダグループはこの記事では両方とも3つですが、数は異なる場合があるので注意してください。例えば、一つのヒットグループにClosest hitシェーダとAny hitシェーダの2つが含まれることもあります。
+# シェーダグループ
+
+シェーダグループは、レイトレーシングパイプラインの作成時に必要となります。
+
+レイトレーシングパイプラインでは、
+後述するシェーダバインディングテーブルと連携して、レイトレーシング中にどのシェーダを呼び出すかを指定するために使います。
+複数のシェーダが1つのグループとしてまとめられることがあります。Raygen、Miss、Hit、Callableの最大4つのグループがありますが、今回はCallableは使わないのでRaygen、Miss、Hitの3つのグループを作成します。
+
+## Raygenグループ
+
+RaygenグループはRaygenシェーダを1つだけ保持するグループです。そして、Raygenグループはパイプラインに1つだけ含めることができます。Raygenシェーダはエントリポイントであるため、1つしか存在できません。
+
+## Missグループ
+
+MissグループはMissシェーダを1つだけ保持するグループです。Missグループはパイプラインに複数含めることができます。例えば、空の色を取得するためのMissシェーダと、シャドウレイがヒットしなかった場合に呼び出すMissシェーダを分けることができます。
+
+GLSLの`traceRayEXT()`関数の引数に渡した`missIndex`で、どのMissグループを呼び出すかを指定します。
+
+```glsl
+void traceRayEXT(
+    // ...
+    uint missIndex,
+    // ...
+);
+```
+
+## Hitグループ
+
+HitグループはClosest Hit、Any Hit、Intersectionシェーダをそれぞれ最大1つ保持するグループです。全部そろっている必要はまったくありません。Hitグループはパイプラインに複数含めることができます。例えば、インスタンスごとに異なるマテリアル（シェーダ）を割り当てることができます。
+
+TODO: 呼び出しの説明追加
+
+```glsl
+void traceRayEXT(
+    // ...
+    uint sbtRecordOffset,
+    uint sbtRecordStride,
+    // ...
+);
+```
+
+## シェーダグループの作成
+
+TODO: 説明追加
+
+```cpp
+void prepareShaders() {
+    // ...
+
+
+    // Create shader groups
+    uint32_t raygenGroup = 0;
+    uint32_t missGroup = 1;
+    uint32_t hitGroup = 2;
+    shaderGroups.resize(3);
+
+    // Raygen group
+    shaderGroups[raygenGroup].setType(
+        vk::RayTracingShaderGroupTypeKHR::eGeneral);
+    shaderGroups[raygenGroup].setGeneralShader(raygenShader);
+    shaderGroups[raygenGroup].setClosestHitShader(VK_SHADER_UNUSED_KHR);
+    shaderGroups[raygenGroup].setAnyHitShader(VK_SHADER_UNUSED_KHR);
+    shaderGroups[raygenGroup].setIntersectionShader(VK_SHADER_UNUSED_KHR);
+
+    // Miss group
+    shaderGroups[missGroup].setType(
+        vk::RayTracingShaderGroupTypeKHR::eGeneral);
+    shaderGroups[missGroup].setGeneralShader(missShader);
+    shaderGroups[missGroup].setClosestHitShader(VK_SHADER_UNUSED_KHR);
+    shaderGroups[missGroup].setAnyHitShader(VK_SHADER_UNUSED_KHR);
+    shaderGroups[missGroup].setIntersectionShader(VK_SHADER_UNUSED_KHR);
+
+    // Hit group
+    shaderGroups[hitGroup].setType(
+        vk::RayTracingShaderGroupTypeKHR::eTrianglesHitGroup);
+    shaderGroups[hitGroup].setGeneralShader(VK_SHADER_UNUSED_KHR);
+    shaderGroups[hitGroup].setClosestHitShader(chitShader);
+    shaderGroups[hitGroup].setAnyHitShader(VK_SHADER_UNUSED_KHR);
+    shaderGroups[hitGroup].setIntersectionShader(VK_SHADER_UNUSED_KHR);
+}
+```
+
 
 以上でこの章は完了です。
 

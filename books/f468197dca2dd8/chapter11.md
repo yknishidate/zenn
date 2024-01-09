@@ -47,6 +47,6 @@ void createRayTracingPipeline() {
 }
 ```
 
-[ここまでのC++コード(07_create_ray_tracing_pipeline.cpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/07_create_ray_tracing_pipeline.cpp)
+[ここまでのC++コード(08_create_pipeline.hpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/08_create_pipeline.hpp)
 
 [シェーダファイル](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/tree/master/shaders)
