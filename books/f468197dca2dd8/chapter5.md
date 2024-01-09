@@ -23,6 +23,10 @@ private:
 
 通常、ラスタライズパイプラインで描画する場合は、スワップチェーンのイメージは`vk::ImageUsageFlagBits::eColorAttachment`を指定します。しかし、レイトレーシングパイプラインでは、シェーダの中でストレージイメージに対して色を書きこむため、`vk::ImageUsageFlagBits::eStorage`を指定することに注意してください。
 
+:::message
+もしパストレーシングをしたい場合は、Accumulation用のvk::Imageを別途作成する必要があります。シェーダからはそのイメージに書きこみ、その後`CommandBuffer::copyImage()`でスワップチェーンのイメージにコピーすることでウィンドウに表示します。スワップチェーンのイメージは`vk::ImageUsageFlagBits::eTransferDst`を立てて作成しておく必要があります。コピーする際には、Accumulation用のイメージは`vk::ImageLayout::eTransferSrcOptimal`に、スワップチェーンのイメージは`vk::ImageLayout::eTransferDstOptimal`に変更します。コピーが終わったら、それぞれのイメージレイアウトを必要がものに戻します。
+:::
+
 スワップチェーンを作成したら、その中に含まれるイメージを取得します。
 
 ```cpp
