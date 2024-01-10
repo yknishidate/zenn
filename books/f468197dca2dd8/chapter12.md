@@ -37,7 +37,7 @@ void createShaderBindingTable() {
 SBTはアライメント要件が決まっています。それをもとに、`raygenRegion`、`missRegion`、`hitRegion`のストライドとサイズを計算します。これは仕様に合わせる定型コードなので、あまり深く考えなくても大丈夫です。詳細が知りたい方は[NVIDIA Vulkan Ray Tracing Tutorial](https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/)を参照してください。
 
 ![](https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/Images/sbt_0.png)
-*SBTのアライメント（NVIDIA Vulkan Ray Tracing Tutorial[https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/]から引用）*
+*SBTのアライメント（[NVIDIA Vulkan Ray Tracing Tutorial](https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/)から引用）*
 
 ```cpp
 void createShaderBindingTable() {
