@@ -55,8 +55,7 @@ void createShaderBindingTable() {
     uint32_t missShaderCount = 1;
     uint32_t hitShaderCount = 1;
 
-    raygenRegion.setStride(
-        vkutils::alignUp(handleSizeAligned, baseAlignment));
+    raygenRegion.setStride(vkutils::alignUp(handleSizeAligned, baseAlignment));
     raygenRegion.setSize(raygenRegion.stride);
 
     missRegion.setStride(handleSizeAligned);
@@ -79,11 +78,11 @@ void createShaderBindingTable() {
     vk::DeviceSize sbtSize =
         raygenRegion.size + missRegion.size + hitRegion.size;
     sbt.init(physicalDevice, *device, sbtSize,
-                vk::BufferUsageFlagBits::eShaderBindingTableKHR |
-                    vk::BufferUsageFlagBits::eTransferSrc |
-                    vk::BufferUsageFlagBits::eShaderDeviceAddress,
-                vk::MemoryPropertyFlagBits::eHostVisible |
-                    vk::MemoryPropertyFlagBits::eHostCoherent);
+             vk::BufferUsageFlagBits::eShaderBindingTableKHR |
+             vk::BufferUsageFlagBits::eTransferSrc |
+             vk::BufferUsageFlagBits::eShaderDeviceAddress,
+             vk::MemoryPropertyFlagBits::eHostVisible |
+             vk::MemoryPropertyFlagBits::eHostCoherent);
 }
 ```
 
@@ -94,8 +93,7 @@ void createShaderBindingTable() {
     // ...
 
     // Get shader group handles
-    uint32_t handleCount =
-        raygenShaderCount + missShaderCount + hitShaderCount;
+    uint32_t handleCount = raygenShaderCount + missShaderCount + hitShaderCount;
     uint32_t handleStorageSize = handleCount * handleSize;
     std::vector<uint8_t> handleStorage(handleStorageSize);
     auto result = device->getRayTracingShaderGroupHandlesKHR(
@@ -158,7 +156,7 @@ void createShaderBindingTable() {
     raygenRegion.setDeviceAddress(sbt.address);
     missRegion.setDeviceAddress(sbt.address + raygenRegion.size);
     hitRegion.setDeviceAddress(sbt.address + raygenRegion.size +
-                                missRegion.size);
+                               missRegion.size);
 }
 ```
 

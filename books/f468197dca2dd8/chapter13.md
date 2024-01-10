@@ -66,8 +66,7 @@ void updateDescriptorSet(vk::ImageView imageView) {
     writes[0].setDstSet(*descSet);
     writes[0].setDstBinding(0);
     writes[0].setDescriptorCount(1);
-    writes[0].setDescriptorType(
-        vk::DescriptorType::eAccelerationStructureKHR);
+    writes[0].setDescriptorType(vk::DescriptorType::eAccelerationStructureKHR);
     writes[0].setPNext(&accelInfo);
 
     // [1]: For storage image
