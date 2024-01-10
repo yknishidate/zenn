@@ -113,7 +113,7 @@ void createShaderBindingTable() {
 0c 00 00 00 00 00 dc 03 ff ff 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 ```
 
-取得したハンドルは密に詰まっているため、SBTバッファに全体をコピーするとアライメントが合いません。そのため、アライメント要件に合うようにハンドルをコピーしていきますが、ここも定型コードという感じ。
+取得したハンドルは密に詰まっているため、SBTバッファに全体をコピーするとアライメントが合いません。そのため、アライメント要件に合うようにハンドルをコピーしていきますが、ここも定型コードという感じです。
 
 ```cpp
 void createShaderBindingTable() {
@@ -154,34 +154,6 @@ void createShaderBindingTable() {
 ```cpp
 void createShaderBindingTable() {
     // ...
-
-    // Copy handles
-    uint8_t* sbtHead =
-        static_cast<uint8_t*>(device->mapMemory(*sbt.memory, 0, sbtSize));
-
-    uint8_t* dstPtr = sbtHead;
-    auto copyHandle = [&](uint32_t index) {
-        std::memcpy(dstPtr, handleStorage.data() + handleSize * index,
-                    handleSize);
-    };
-
-    // Raygen
-    uint32_t handleIndex = 0;
-    copyHandle(handleIndex++);
-
-    // Miss
-    dstPtr = sbtHead + raygenRegion.size;
-    for (uint32_t c = 0; c < missShaderCount; c++) {
-        copyHandle(handleIndex++);
-        dstPtr += missRegion.stride;
-    }
-
-    // Hit
-    dstPtr = sbtHead + raygenRegion.size + missRegion.size;
-    for (uint32_t c = 0; c < hitShaderCount; c++) {
-        copyHandle(handleIndex++);
-        dstPtr += hitRegion.stride;
-    }
 
     raygenRegion.setDeviceAddress(sbt.address);
     missRegion.setDeviceAddress(sbt.address + raygenRegion.size);
