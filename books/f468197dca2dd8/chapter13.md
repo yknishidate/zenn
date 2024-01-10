@@ -48,7 +48,6 @@ void drawFrame() {
         std::abort();
     }
 
-    // Update descriptor sets using current image
     uint32_t imageIndex = result.value;
 }
 ```
@@ -71,7 +70,7 @@ void updateDescriptorSet(vk::ImageView imageView) {
         vk::DescriptorType::eAccelerationStructureKHR);
     writes[0].setPNext(&accelInfo);
 
-    // [0]: For storage image
+    // [1]: For storage image
     vk::DescriptorImageInfo imageInfo{};
     imageInfo.setImageView(imageView);
     imageInfo.setImageLayout(vk::ImageLayout::eGeneral);
@@ -161,15 +160,6 @@ void drawFrame() {
 
     // Wait
     queue.waitIdle();
-
-    // Present
-    vk::PresentInfoKHR presentInfo{};
-    presentInfo.setSwapchains(*swapchain);
-    presentInfo.setImageIndices(imageIndex);
-    if (queue.presentKHR(presentInfo) != vk::Result::eSuccess) {
-        std::cerr << "Failed to present.\n";
-        std::abort();
-    }
 }
 ```
 
