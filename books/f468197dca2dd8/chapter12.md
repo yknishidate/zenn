@@ -10,7 +10,7 @@ title: "シェーダバインディングテーブルの作成"
 
 # 必要なメンバー変数を追加
 
-シェーダはRaygen、Miss、Hitに分かれます。Raygenは必ず1つですが、MissとHitには複数のシェーダが存在する可能性があります。よって各タイプごとにシェーダハンドルが格納されている範囲を`vk::StridedDeviceAddressRegionKHR`という構造体で指定します。
+シェーダはRaygen、Miss、Hit、Callableに分かれますが、Callableは使いません。Raygenシェーダは必ず1つですが、MissとHitには複数のシェーダが存在する可能性があります。つまり、各タイプごとに先頭アドレスを渡すだけではテーブルとして情報が足りません。よって、シェーダハンドルが格納されている範囲を`vk::StridedDeviceAddressRegionKHR`という構造体で指定します。
 
 ```cpp
 // ...
