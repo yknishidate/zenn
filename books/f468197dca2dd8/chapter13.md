@@ -204,3 +204,7 @@ void drawFrame() {
 # まとめ
 
 以上で、Vulkan Ray Tracingの基本的な入門は終了です。まだまだ発展的な内容はありますが、Vulkan Ray Tracingの基本的な概念は理解できたのではないでしょうか。もし記事にミスがあったり、説明が不足している部分があれば、Zennにコメントしていただくか、GitHubで編集提案していただくか、X(twitter.com/yknishidate)に連絡していただけると幸いです。また、分からないことがあれば、Xに連絡していただければ分かる範囲でお答えします。それでは、最後まで読んでいただきありがとうございました。
+
+# おすすめ
+
+Vulkan Ray Tracingについてさらに詳しく知りたい方は、てっくまさんの[Vulkan Raytracing Programming Vol.1](https://booth.pm/ja/items/3564766)をおすすめします。各関数のパラメータまで詳説しており、発展的内容も多く含まれています。
