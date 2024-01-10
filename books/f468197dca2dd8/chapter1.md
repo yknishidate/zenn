@@ -6,7 +6,7 @@ title: "はじめに"
 
 Vulkan Ray Tracingは、**クロスベンダー**かつ**クロスプラットフォーム**にハードウェアレイトレーシングを利用できるAPIです。
 
-2020年11月に[最終仕様](https://www.khronos.org/blog/vulkan-ray-tracing-final-specification-release)がリリースされ、12月には最終仕様に対応したVulkan SDK 1.2.162.0 が公開されました。最終仕様では、Vulkan Ray Tracingは以下の拡張機能から構成されています。
+2020年11月に[最終仕様](https://www.khronos.org/blog/vulkan-ray-tracing-final-specification-release)がリリースされ、12月には最終仕様に対応したVulkan SDK 1.2.162.0 が公開されました。最終仕様では、Vulkan Ray Tracingは主に以下の拡張機能から構成されています。
 
 - **VK_KHR_acceleration_structure**
 - **VK_KHR_ray_tracing_pipeline**
@@ -16,7 +16,7 @@ Vulkanでは2種類の方法でレイトレーシングを使用できます。
 - **レイトレーシングパイプライン**：Raygen、Closest Hit、Miss などの専用シェーダを組み合わせてレイトレーシングを行う方法
 - **レイクエリ**：Compute、Fragmentなど、既存のシェーダからレイトレーシングを行う方法
 
-レイクエリはパイプライン作成の手間が少ない反面、パフォーマンスが低下する可能性があります。ただ、実際のところベンダーの実装に大きく依存するため、プロファイリングをとってみないとなんとも言えません。
+レイクエリはパイプライン作成の手間が少ない反面、ドライバによるリスケジューリングの余地がないためパフォーマンスが低下する可能性があります。ただ、実際のところベンダーの実装に大きく依存するため、プロファイリングをとってみないとなんとも言えません。
 
 # この記事について
 
@@ -32,8 +32,8 @@ Vulkanでは2種類の方法でレイトレーシングを使用できます。
 2024年1月: 大幅刷新 (Version 2)
 - CMake + vcpkgによるクロスプラットフォームなプロジェクトに変更
 - Storage imageを削除し、Swapchain imagesに直接描画する形式に変更
-- コードの読みやすさを大幅に改善
-- コード量を大幅に削減（820行→660行）
+- コードの読みやすさを改善
+- コード量を大幅に削減（820行→700行）
 - シェーダコンパイラをglslcからglslangValidatorに変更
 - Shader binding tableについて修正と説明追加
 - カバー画像を更新

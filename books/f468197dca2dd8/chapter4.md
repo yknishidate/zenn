@@ -2,7 +2,7 @@
 title: "基本セットアップ"
 ---
 
-この章では、Vulkanの基本的なセットアップを行います。
+この章では、Vulkanの基本的なセットアップを行います。レイトレーシングとあまり関係がない部分についてはヘルパーを使ってスキップします。
 
 # 必要なメンバー変数を追加
 
@@ -32,7 +32,7 @@ private:
 
 # インスタンスを作成
 
-まずはインスタンスを作成します。`initVulkan()`のなかで`vkutils::createInstance()`を呼び出します。この際、後述する検証レイヤーを有効化するために、`VK_LAYER_KHRONOS_validation`を有効化しておきます。また、レイトレーシングを利用するために、`Vulkan 1.2`を指定します。
+まずはインスタンスを作成します。`initVulkan()`のなかで`vkutils::createInstance()`を呼び出します。この際、レイトレーシングを利用するために、`Vulkan 1.2`を指定します。また、検証レイヤーを有効化するために、`VK_LAYER_KHRONOS_validation`を有効化します。
 
 ```cpp
 void initVulkan() {

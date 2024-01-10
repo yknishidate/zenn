@@ -163,6 +163,11 @@ project/
     - miss.rmiss.spv (new)
 ```
 
+:::message
+ちなみに、ラインタイムでGLSLをSPIR-Vにコンパイルしたい場合は、こちらの記事をご覧ください。[【Vulkan】GLSLレイトレーシングシェーダをランタイムコンパイルしてみる](https://zenn.dev/nishiki/articles/8cfbfed52f13cb)
+:::
+
+
 # シェーダモジュールとシェーダステージ
 
 ではC++に戻ります。
@@ -239,34 +244,17 @@ RaygenグループはRaygenシェーダを1つだけ保持するグループで�
 
 MissグループはMissシェーダを1つだけ保持するグループです。Missグループはパイプラインに複数含めることができます。例えば、空の色を取得するためのMissシェーダと、シャドウレイがヒットしなかった場合に呼び出すMissシェーダを分けることができます。
 
-GLSLの`traceRayEXT()`関数の引数に渡した`missIndex`で、どのMissグループを呼び出すかを指定します。
-
-```glsl
-void traceRayEXT(
-    // ...
-    uint missIndex,
-    // ...
-);
-```
+GLSLの`traceRayEXT()`関数の引数に渡す`missIndex`で、どのMissグループを呼び出すかを指定します。
 
 ## Hitグループ
 
 HitグループはClosest Hit、Any Hit、Intersectionシェーダをそれぞれ最大1つ保持するグループです。全部そろっている必要はまったくありません。Hitグループはパイプラインに複数含めることができます。例えば、インスタンスごとに異なるマテリアル（シェーダ）を割り当てることができます。
 
-TODO: 呼び出しの説明追加
-
-```glsl
-void traceRayEXT(
-    // ...
-    uint sbtRecordOffset,
-    uint sbtRecordStride,
-    // ...
-);
-```
+`vk::AccelerationStructureInstanceKHR`に設定する`instanceShaderBindingTableRecordOffset`と、GLSLの`traceRayEXT()`関数の引数に渡す`sbtRecordOffset`と`sbtRecordStride`で、どのHitグループを呼び出すかを指定します。詳細はこちら[Shader binding table hit shader indexing](https://registry.khronos.org/vulkan/specs/1.1-extensions/html/vkspec.html#shader-binding-table-hit-shader-indexing)。
 
 ## シェーダグループの作成
 
-TODO: 説明追加
+ここでは、単にそれぞれのグループに対して1つずつシェーダインデックス（シェーダステージ配列内のインデックス）を割り当てます。
 
 ```cpp
 void prepareShaders() {

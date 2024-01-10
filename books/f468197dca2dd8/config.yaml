@@ -3,7 +3,7 @@ summary: "Vulkan レイトレーシングでゼロから三角形を出す入門
 topics:
   - "cpp"
   - "vulkan"
-published: false
+published: true
 price: 0
 toc_depth: 2
 allow_override: true

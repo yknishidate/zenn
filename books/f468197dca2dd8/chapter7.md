@@ -14,7 +14,7 @@ VulkanのASは以下の2つに分かれています。
   ひとつのシーンを表す構造。BLASへの参照と変換行列の組をインスタンスとして、その集合を保持する。
 
 ![](https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/Images/AccelerationStructure.svg)
-*出典:[NVIDIA Vulkan Ray Tracing Tutorial](https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/)*
+*[NVIDIA Vulkan Ray Tracing Tutorial](https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/)から引用*
 
 # AS構造体の作成
 

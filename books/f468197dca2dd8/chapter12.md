@@ -6,7 +6,11 @@ title: "シェーダバインディングテーブルの作成"
 
 # シェーダバインディングテーブルについて
 
-TODO: 説明追加
+レイトレーシングではパイプライン内でGPUが適切なシェーダを選択して実行する必要があるため、事前に全てのシェーダのアドレスを渡しておく必要があります。シェーダバインディングテーブル（SBT）は、シェーダのアドレスを格納するためのバッファで、CPUでいう関数ポインタのテーブルのような役割を果たします。
+
+# 必要なメンバー変数を追加
+
+シェーダはRaygen、Miss、Hitに分かれます。Raygenは必ず1つですが、MissとHitには複数のシェーダが存在する可能性があります。そのため、SBTには各タイプのシェーダがいくつ存在するかを指定する必要があるため、`address`、`stride`、`size`の3つ情報を持つ`vk::StridedDeviceAddressRegionKHR`という構造体を使います。
 
 ```cpp
 // ...
@@ -15,6 +19,10 @@ vk::StridedDeviceAddressRegionKHR raygenRegion{};
 vk::StridedDeviceAddressRegionKHR missRegion{};
 vk::StridedDeviceAddressRegionKHR hitRegion{};
 ```
+
+# アライメントからRegionのストライドとサイズを計算
+
+まず`createShaderBindingTable()`を追加します。
 
 ```cpp
 void initVulkan() {
@@ -25,6 +33,11 @@ void initVulkan() {
 void createShaderBindingTable() {
 }
 ```
+
+SBTはアライメント要件が決まっています。それをもとに、`raygenRegion`、`missRegion`、`hitRegion`のストライドとサイズを計算します。これは仕様に合わせる定型コードなので、あまり深く考えなくても大丈夫です。詳細が知りたい方は[NVIDIA Vulkan Ray Tracing Tutorial](https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/)を参照してください。
+
+![](https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/Images/sbt_0.png)
+*SBTのアライメント（NVIDIA Vulkan Ray Tracing Tutorial[https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/]から引用）*
 
 ```cpp
 void createShaderBindingTable() {
@@ -53,6 +66,14 @@ void createShaderBindingTable() {
     hitRegion.setStride(handleSizeAligned);
     hitRegion.setSize(vkutils::alignUp(hitShaderCount * handleSizeAligned,
                                         baseAlignment));
+}
+```
+
+SBTのバッファを作成します。SBT用のバッファは`vk::BufferUsageFlagBits::eShaderBindingTableKHR`を立てて作成します。
+
+```cpp
+void createShaderBindingTable() {
+    // ...
 
     // Create SBT
     vk::DeviceSize sbtSize =
@@ -63,6 +84,14 @@ void createShaderBindingTable() {
                     vk::BufferUsageFlagBits::eShaderDeviceAddress,
                 vk::MemoryPropertyFlagBits::eHostVisible |
                     vk::MemoryPropertyFlagBits::eHostCoherent);
+}
+```
+
+SBTバッファにシェーダハンドルを詰めていきます。まず、必要な数のシェーダハンドルを`vk::Device::getRayTracingShaderGroupHandlesKHR()`で取得します。ここで取得されるシェーダハンドルを実際に見てみると、何かしらのデータが3つ詰まっていることが分かります。
+
+```cpp
+void createShaderBindingTable() {
+    // ...
 
     // Get shader group handles
     uint32_t handleCount =
@@ -75,9 +104,22 @@ void createShaderBindingTable() {
         std::cerr << "Failed to get ray tracing shader group handles.\n";
         std::abort();
     }
+}
+```
+
+```
+09 00 00 00 00 00 7c 03 ff ff 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0b 00 00 00 00 00 bc 03 ff ff 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+0c 00 00 00 00 00 dc 03 ff ff 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+```
+
+取得したハンドルは密に詰まっているため、SBTバッファに全体をコピーするとアライメントが合いません。そのため、アライメント要件に合うようにハンドルをコピーしていきますが、ここも定型コードという感じ。
+
+```cpp
+void createShaderBindingTable() {
+    // ...
 
     // Copy handles
-    uint32_t handleIndex = 0;
     uint8_t* sbtHead =
         static_cast<uint8_t*>(device->mapMemory(*sbt.memory, 0, sbtSize));
 
@@ -88,6 +130,43 @@ void createShaderBindingTable() {
     };
 
     // Raygen
+    uint32_t handleIndex = 0;
+    copyHandle(handleIndex++);
+
+    // Miss
+    dstPtr = sbtHead + raygenRegion.size;
+    for (uint32_t c = 0; c < missShaderCount; c++) {
+        copyHandle(handleIndex++);
+        dstPtr += missRegion.stride;
+    }
+
+    // Hit
+    dstPtr = sbtHead + raygenRegion.size + missRegion.size;
+    for (uint32_t c = 0; c < hitShaderCount; c++) {
+        copyHandle(handleIndex++);
+        dstPtr += hitRegion.stride;
+    }
+}
+```
+
+最後にRegionのデバイスアドレスを設定します。
+
+```cpp
+void createShaderBindingTable() {
+    // ...
+
+    // Copy handles
+    uint8_t* sbtHead =
+        static_cast<uint8_t*>(device->mapMemory(*sbt.memory, 0, sbtSize));
+
+    uint8_t* dstPtr = sbtHead;
+    auto copyHandle = [&](uint32_t index) {
+        std::memcpy(dstPtr, handleStorage.data() + handleSize * index,
+                    handleSize);
+    };
+
+    // Raygen
+    uint32_t handleIndex = 0;
     copyHandle(handleIndex++);
 
     // Miss
@@ -110,6 +189,8 @@ void createShaderBindingTable() {
                                 missRegion.size);
 }
 ```
+
+これでSBTが完成しました。
 
 [ここまでのC++コード(09_create_sbt.hpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/09_create_sbt.hpp)
 

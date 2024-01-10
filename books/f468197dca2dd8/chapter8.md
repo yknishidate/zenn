@@ -26,7 +26,7 @@ void createTopLevelAS() {
 関数の中身を記述していきます。まずはTLASに格納するインスタンスを作成しましょう。複数のインスタンスを格納できますが、今回は1つだけにします。
 
 - `setTransform()`には変換行列を渡します。今回は単位行列を渡しています。
-- `setInstanceCustomIndex()`にはインスタンスのカスタムインデックスを渡します。これを利用すると、シェーダで指定したインデックスを取得できます。例えば、インスタンスIDとは別に、参照するメッシュのIDを取得すると便利です。
+- `setInstanceCustomIndex()`にはインスタンスのカスタムインデックスを渡します。これを指定すると、シェーダで`gl_InstanceCustomIndexEXT`として取得できます。
 - `setMask()`にはインスタンスの可視性マスクを渡します。これはレイとの衝突判定に使われます。
 - `setInstanceShaderBindingTableRecordOffset()`にはシェーダバインディングテーブルのオフセットを渡します。これは複数のヒットシェーダを扱うときに、どのシェーダを呼び出すかを指定するために使います。
 - `setFlags()`にはインスタンスのフラグを渡します。今回はカリングを無効にしています。
@@ -107,4 +107,4 @@ void createTopLevelAS() {
 
 以上でBLASとTLASの作成できました。
 
-[ここまでのC++コード(06_create_top_level_as.hpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/06_create_top_level_as.hpp)
+[ここまでのC++コード(05_create_top_level_as.hpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/05_create_top_level_as.hpp)
