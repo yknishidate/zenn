@@ -207,4 +207,4 @@ void drawFrame() {
 
 # おすすめ
 
-Vulkan Ray Tracingについてさらに詳しく知りたい方は、てっくまさんの[Vulkan Raytracing Programming Vol.1](https://booth.pm/ja/items/3564766)をおすすめします。各関数のパラメータまで詳説しており、発展的内容も多く含まれています。
+Vulkan Ray Tracingについてさらに詳しく知りたい方には、てっくまさんの[Vulkan Raytracing Programming Vol.1](https://booth.pm/ja/items/3564766)がおすすめです。各関数のパラメータまで詳説しており、発展的内容も多く含まれています。
