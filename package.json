@@ -1,7 +1,7 @@
 {
   "name": "zenn",
   "version": "1.0.0",
-  "description": "",
+  "description": "* [📘 How to use](https://zenn.dev/zenn/articles/zenn-cli-guide)",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -19,5 +19,10 @@
   "homepage": "https://github.com/yknishidate/zenn#readme",
   "dependencies": {
     "zenn-cli": "^0.1.150"
+  },
+  "devDependencies": {
+    "textlint": "^13.4.1",
+    "textlint-rule-preset-ja-technical-writing": "^10.0.1",
+    "textlint-rule-preset-jtf-style": "^2.3.14"
   }
 }

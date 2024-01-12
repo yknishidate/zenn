@@ -72,6 +72,6 @@ void run() {
 これで実行するとウィンドウが出るようになったはずです。
 ![](https://storage.googleapis.com/zenn-user-upload/jvumbprttxc40c7ysrstf8ejrwi9)
 
-ベースとなるクラスができました。次の章では Vulkan のセットアップを行っていきます。
+ベースとなるクラスができました。次の章ではVulkanのセットアップを行っていきます。
 
 [ここまでのC++コード(00_base_code.hpp)](https://github.com/nishidate-yuki/vulkan_raytracing_from_scratch/blob/master/code/00_base_code.hpp)

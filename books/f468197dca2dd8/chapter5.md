@@ -24,7 +24,7 @@ private:
 通常、ラスタライズパイプラインで描画する場合は、スワップチェーンのイメージは`vk::ImageUsageFlagBits::eColorAttachment`を指定します。しかし、レイトレーシングパイプラインでは、シェーダから`imageStore()`を使って色を書きこむため、`vk::ImageUsageFlagBits::eStorage`を指定することに注意してください。
 
 :::message
-もしパストレーシングをしたい場合は、Accumulation用イメージを別途作成する必要があります。シェーダからはそのイメージに書きこみ、その後`CommandBuffer::copyImage()`でスワップチェーンのイメージにコピーするか、別のフラグメントシェーダを経由して書きこみます。コピーする場合はスワップチェーンのイメージは`vk::ImageUsageFlagBits::eTransferDst`を立てて作成しておく必要があります。また、それぞれのイメージレイアウトを適切に遷移必要もあります。具体的な実装はこちらをご覧ください：[yknishidate/single-file-vulkan-pathtracing](https://github.com/yknishidate/single-file-vulkan-pathtracing)
+もしパストレーシングをしたい場合は、Accumulation用イメージを別途作成する必要があります。シェーダからはそのイメージに書きこみ、その後`CommandBuffer::copyImage()`でスワップチェーンのイメージにコピーするか、別のフラグメントシェーダを経由して書きこみます。コピーする場合はスワップチェーンのイメージは`vk::ImageUsageFlagBits::eTransferDst`を立てて作成しておく必要があります。また、それぞれのイメージレイアウトを適切に遷移する必要もあります。具体的な実装はこちらをご覧ください：[yknishidate/single-file-vulkan-pathtracing](https://github.com/yknishidate/single-file-vulkan-pathtracing)
 :::
 
 スワップチェーンを作成したら、その中に含まれるイメージを取得します。

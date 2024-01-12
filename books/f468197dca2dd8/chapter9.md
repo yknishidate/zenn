@@ -137,7 +137,7 @@ void main()
 
 # シェーダのコンパイル
 
-今回は glslangValidator を使ってGLSLをSPIR-V（読み方：スピアブイ）形式にコンパイルします。
+今回はglslangValidatorを使ってGLSLをSPIR-V（読み方：スピアブイ）形式にコンパイルします。
 
 Windows環境では、`shaders`ディレクトリに以下のようなバッチファイルを作ります。異なるプラットフォームの場合は適宜読み替えて下さい。
 

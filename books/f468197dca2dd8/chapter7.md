@@ -8,9 +8,9 @@ ASはポリゴンとレイの交差判定を高速化するための階層的な
 
 VulkanのASは以下の2つに分かれています。
 
-- ボトムレベルアクセラレーション構造(BLAS)：
+- ボトムレベルアクセラレーション構造（BLAS）：
   ひとつのメッシュを表す構造。ポリゴンを構成する頂点やインデックスを保持する。
-- トップレベルアクセラレーション構造(TLAS)：
+- トップレベルアクセラレーション構造（TLAS）：
   ひとつのシーンを表す構造。BLASへの参照と変換行列の組をインスタンスとして、その集合を保持する。
 
 ![](https://nvpro-samples.github.io/vk_raytracing_tutorial_KHR/Images/AccelerationStructure.svg)
@@ -143,11 +143,11 @@ void createBottomLevelAS() {
 - `type`はBLASかTLASかを指定します。
 - `mode`はビルドのモードを指定します。
   - ゼロからビルドする場合は`vk::BuildAccelerationStructureModeKHR::eBuild`を指定します。
-  - 構築済みのASを更新する場合は`vk::BuildAccelerationStructureModeKHR::eUpdate`を指定します。例えばインスタンスが動くシーンにおいて、TLASを高速に更新したい場合に有効です。
+  - 構築済みのASを更新する場合は`vk::BuildAccelerationStructureModeKHR::eUpdate`を指定します。例えばインスタンスが動くシーンにおいて、TLASを短時間で更新したい場合に有効です。
 - `flags`はビルドのオプションを指定します。一般的に、BVHはビルドの速度とトレースの速度のトレードオフがあります。
   - `vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace`を指定すると、トレースの速度を優先します。
   - `vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastBuild`を指定すると、ビルドの速度を優先します。
-  - また、ASの更新を行う場合は`vk::BuildAccelerationStructureFlagBitsKHR::eAllowUpdate`も指定する必要があります。
+  - また、ASを更新する場合は`vk::BuildAccelerationStructureFlagBitsKHR::eAllowUpdate`も指定する必要があります。
 
 ```cpp
 void init(vk::PhysicalDevice physicalDevice,
@@ -218,7 +218,7 @@ void init(...) {
 }
 ```
 
-では、いよいよASをビルドします。`vkutils::oneTimeSubmit()`を使って、コマンドバッファを一時的に確保し、ビルドコマンドを実行します。`vk::AccelerationStructureBuildRangeInfoKHR`を使うと細かいビルドの範囲を指定することができますが、今回は単純に全体をビルドします。
+では、いよいよASをビルドします。`vkutils::oneTimeSubmit()`を使って、コマンドバッファを一時的に確保し、ビルドコマンドを実行します。`vk::AccelerationStructureBuildRangeInfoKHR`を使うと細かいビルドの範囲を指定できますが、今回は単純に全体をビルドします。
 
 ```cpp
 void init(...) {
@@ -239,7 +239,7 @@ void init(...) {
 }
 ```
 
-最後に、ASのアドレスを取得します。BLASのアドレスは、TLASをビルドする際に必要になります。
+最後に、ASのアドレスを取得します。BLASのアドレスは、TLASをビルドする際に必要です。
 
 ```cpp
 void init(...) {

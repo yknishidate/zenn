@@ -73,7 +73,7 @@ void createTopLevelAS() {
 }
 ```
 
-インスタンスをもとにジオメトリの設定を行います。
+インスタンスをもとにジオメトリを設定します。
 
 ```cpp
 void createTopLevelAS() {
