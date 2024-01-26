@@ -64,17 +64,22 @@ jobs:
 
 Vulkanを使いたいので、SDKをインストールします。
 
-Vulkanのセットアップ用のアクションとして [Setup Vulkan SDK](https://github.com/marketplace/actions/setup-vulkan-sdk) や [Install Vulkan SDK](https://github.com/marketplace/actions/install-vulkan-sdk) があります。今回は後者を使いました。
+Vulkanのセットアップ用のアクションとして [Setup Vulkan SDK](https://github.com/marketplace/actions/setup-vulkan-sdk) や [Install Vulkan SDK](https://github.com/marketplace/actions/install-vulkan-sdk) があります。しかし、対応バージョンが古かったり、GitHub上で警告が出たりするので、サードパーティのアクションを使わずに、自分で [LunarG のサイト](https://vulkan.lunarg.com/sdk/home)からインストーラをダウンロードします。
+参考: [actions/runner-images/#18](https://github.com/actions/runner-images/issues/18)
 
 ```yaml:.github/workflows/build.yml
-    - name: Install Vulkan SDK
-      uses: humbletim/install-vulkan-sdk@v1.1.1
-      with:
-        version: 1.3.250.1
-        cache: true
-```
+    env:
+      VULKAN_SDK: C:\VulkanSDK\
 
-サードパーティのアクションを使わずに、自分で [LunarG のサイト](https://vulkan.lunarg.com/sdk/home)からインストーラをダウンロードする方法もあります。参考: [actions/runner-images/#18](https://github.com/actions/runner-images/issues/18)
+    - name: Setup Vulkan
+      run: |
+          $ver = (Invoke-WebRequest -Uri "https://vulkan.lunarg.com/sdk/latest.json" | ConvertFrom-Json).windows
+          echo Version $ver
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/$ver/windows/VulkanSDK-$ver-Installer.exe" -OutFile VulkanSDK.exe
+          echo Downloaded
+          .\VulkanSDK.exe --root C:\VulkanSDK  --accept-licenses --default-answer --confirm-command install
+```
 
 # vcpkgのキャッシュ
 
@@ -107,6 +112,7 @@ jobs:
     runs-on: windows-latest
     env: 
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+      VULKAN_SDK: C:\VulkanSDK\
 
     steps:
     - name: Checkout repository
@@ -120,10 +126,13 @@ jobs:
           core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
     - name: Install Vulkan SDK
-      uses: humbletim/install-vulkan-sdk@v1.1.1
-      with:
-        version: 1.3.250.1
-        cache: true
+      run: |
+          $ver = (Invoke-WebRequest -Uri "https://vulkan.lunarg.com/sdk/latest.json" | ConvertFrom-Json).windows
+          echo Version $ver
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/$ver/windows/VulkanSDK-$ver-Installer.exe" -OutFile VulkanSDK.exe
+          echo Downloaded
+          .\VulkanSDK.exe --root C:\VulkanSDK  --accept-licenses --default-answer --confirm-command install
 
     - name: Configure CMake
       run: |
